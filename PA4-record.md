@@ -390,3 +390,66 @@ Plot: `04-DCP1/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 #### Conclusion
 
 (To be stated by the student.)
+
+## 04-DCP2: DCQ2 + tasks, no reduction, taskwait ordering (parallel)
+
+### DCP2.1: LL || HH, taskwait, then LH and HL sequentially
+
+#### Introduction
+
+DCP1.1 scaled nearly linearly with a task reduction (15.05x at 16
+threads). PA4 goal 2: the best speedup without reductions, using
+correctly placed syncs (taskwaits). PA4.md requires analyzing the work
+and span of the program and using it to predict parallel performance
+before running the experiment.
+
+Within one node, the four quadrants write: LL = a_lo x b_lo ->
+c[0 .. ha+hb-2]; HH = a_hi x b_hi -> c[ha+hb .. na+nb-2]; LH = a_lo x b_hi
+-> c[hb .. ha+nb-2] and HL = a_hi x b_lo -> c[ha .. na+hb-2], which
+overlap LL, HH and each other. LL and HH write disjoint ranges.
+
+#### Hypothesis
+
+(To be stated by the student; per PA4.md, including the work/span
+analysis and predicted speedup.)
+
+#### Design
+
+Decisions (user): no reduction, sync with taskwait; first approach: LL
+and HH in parallel, then LH and HL sequentially, each as plain sequential
+DCQ2 on the calling thread; directory `04-DCP2`; depth knob kept
+(fallback 5), leaf_size fallback 4096.
+
+```
+dcp(node, d):
+    if d >= depth or node is a leaf: dcq(node)            # sequential DCQ2
+    else:
+        task dcp(LL, d+1)
+        task dcp(HH, d+1)
+        taskwait
+        dcq(LH)                                           # sequential
+        dcq(HL)                                           # sequential
+top: parallel -> single -> dcp(whole, 0)
+```
+
+- All writes go straight into the shared c (and comp in the checking
+  build, at the same offsets).
+- The taskwait waits only for the direct children LL and HH; each child
+  returns only after its own taskwait and its own LH/HL, so all
+  descendants are done when it returns.
+- Only LL and HH recurse in parallel; LH and HL (half of each node's
+  work) run sequentially at every level above the cutoff.
+- Without -fopenmp: quadrant order LL, HH, LH, HL above the cutoff
+  (DCQ2: LL, LH, HL, HH); same arithmetic per element, different
+  summation order.
+- Copied from DCP1 with the reduction removed; sequential dcq, b copy
+  and split rule unchanged.
+
+#### Implementation
+
+`04-DCP2/` (Makefile and run.sh copied from `04-DCP1`, variant name
+`DCP2`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (leaf_size=64, depth=5; parallel check at OpenMP's
+default 16 threads). One gate run; a race that the gate happens not to
+expose in one run cannot be ruled out by a single pass.
