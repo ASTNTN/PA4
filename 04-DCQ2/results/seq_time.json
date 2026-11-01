@@ -3,8 +3,8 @@
     "100000x100000": {
       "dA": 100000,
       "dB": 100000,
-      "seq_time": 2.271639102,
-      "seq_time_source": "recorded via --record-seq (/s/chopin/g/under/C835301300/Parallel/PA4/04-DCQ2/results/2026.11.01.001_seq_100000x100000.csv)"
+      "seq_time": 1.510738664,
+      "seq_time_source": "recorded via --record-seq (/s/chopin/g/under/C835301300/Parallel/PA4/04-DCQ2/results/2026.11.01.002_seq_100000x100000.csv)"
     }
   }
 }

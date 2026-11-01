@@ -172,6 +172,14 @@ Rep spread <= 0.3% everywhere except leaf_size=8192 (one rep +1.1%).
 
 Plot: `04-DCQ/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
 
+Re-check (after DCQ2.1 showed that load from another process can slow a
+run by 1.5x with tight reps): DCQ.1's baseline and this sweep were re-run
+with identical commands on a quiet machine (load average 0.8-1.8, no other
+user's jobs), as `2026.11.01.003_seq_100000x100000.csv` and
+`2026.11.01.004_leaf_sweep_100000x100000.csv`. Every point agrees with the
+original within 0.1% (baseline 2.7381 vs 2.7405 s), so the original
+numbers above stand and the original T(seq) entry was kept.
+
 #### Conclusion
 
 (To be stated by the student.)
@@ -234,20 +242,150 @@ Gate passed again inside the sweep. Load average 1.8 before, 2.7 after
 
 #### Results
 
-Median of 7: 2.2716 s, 8.80 GFLOPs/s (25.0% TPP). Reps 2.2670-2.2730 s,
-within 0.2% of the median. Recorded in `04-DCQ2/results/seq_time.json`.
+Run 1 (`2026.11.01.001_seq_100000x100000.csv`, superseded): median of 7
+2.2716 s, 8.80 GFLOPs/s (25.0% TPP), reps within 0.2%. The user's own
+rerun indicated additional usage from another process during it, so it
+was repeated.
+
+Run 2 (`2026.11.01.002_seq_100000x100000.csv`), same command with
+`--name 2026.11.01.002_seq_100000x100000`, load average 1.5 before and
+after, other user's Python jobs no longer present: median of 7 1.5107 s,
+**13.24 GFLOPs/s (37.6% TPP)**, reps 1.5106-1.5114 s (within 0.05%).
+`--record-seq` replaced run 1's entry in `04-DCQ2/results/seq_time.json`
+with run 2's value.
 
 | variant (leaf_size)       | time (s) | GF/s  | % TPP |
 |---------------------------|---------:|------:|------:|
 | DCQ (4096), DCQ.2         | 1.651    | 12.12 | 34.4  |
-| DCQ (8192), DCQ.2         | 2.238    | 8.94  | 25.4  |
-| **DCQ2 (4096)**           | 2.272    | 8.80  | 25.0  |
+| DCQ2 (4096), run 1        | 2.272    | 8.80  | 25.0  |
+| **DCQ2 (4096), run 2**    | 1.511    | 13.24 | 37.6  |
+| BKQ (3072), PA3 BKQ7.2    | -        | 13.22 | 37.6  |
 
-- Surprise: DCQ2 is 0.73x DCQ at the same leaf_size (4096), not faster.
-  It lands near DCQ's leaf_size=8192/16384 rate (25-26%) and OPQ's
-  large-size rate (~26.5%). Not explained; not yet profiled.
+- Run 2: DCQ2 is 1.09x DCQ at the same leaf_size, and equal to BKQ's best
+  single-core rate.
+- Run 1 was 1.50x slower than run 2 yet had reps just as tight (0.2%):
+  tight rep spread did not reveal the interference. DCQ.1 and DCQ.2 ran
+  under similar load but were unaffected: quiet-machine re-runs agreed
+  within 0.1% (see DCQ.2).
 - The copy of b (100001 floats, ~400 KB, once per call) is inside the
   timed region; its cost is not measured separately.
+
+#### Conclusion
+
+(To be stated by the student.)
+
+## 04-DCP1: DCQ2 + tasks, task reduction into c (parallel)
+
+### DCP1.1: tasks for all 4 sub-multiplies down to a depth cutoff, taskgroup task_reduction
+
+#### Introduction
+
+PA4 goal 1: near-perfect speedup with the usual reduction strategy (tasks,
+taskgroups). DCQ2 is the best sequential DC kernel so far (13.24 GF/s,
+37.6% TPP, leaf_size=4096). The four quadrant sub-multiplies of a node
+write overlapping ranges of c (the two "cross" quadrants write the same
+range, and every quadrant overlaps its neighbours), so concurrent
+sub-multiplies race on c unless each accumulates into a private copy.
+
+#### Hypothesis
+
+(To be stated by the student.)
+
+#### Design
+
+Decisions (user): directory `04-DCP1` (T(seq) ancestor lookup -> `04-DCQ`,
+the original DCQ, by directory name; DCQ2 is not looked up
+automatically); each of the 4 recursive calls is a task, down to a depth
+cutoff; reduction via `taskgroup task_reduction`.
+
+Note (user): compare reduction implementations going forward, e.g. this
+`taskgroup task_reduction` against `reduction` on the parallel region with
+`single` and `in_reduction` tasks.
+
+- Sequential recursion and leaf exactly as DCQ2 (OPQ leaf, always
+  quadrants, b split rounded to 16 floats, aligned copy of b, leaf_size
+  fallback 4096).
+- New knob `--tune depth=N`, the task-spawn cutoff, fallback 5 (the shared
+  gate tune's value; default chosen by Claude, not discussed).
+- Top level: `parallel` -> `single` -> `taskgroup task_reduction(+:
+  c[:n])` (also `comp[:n]` in the checking build), then dcp on the whole
+  problem.
+- dcp at depth d < depth spawns each non-empty quadrant as a task:
+  - a child that does arithmetic (a leaf, or at depth = cutoff) gets
+    `in_reduction(+: c[:n])` and runs the sequential DCQ2 recursion on
+    its thread's private copy of c, at its offset;
+  - any other child only spawns tasks, never writes c, and is a plain
+    task (so in_reduction never sees an already-privatized pointer).
+- No taskwait: the taskgroup's end waits for all descendant tasks, then
+  combines the private copies into c.
+- With depth=5 there are up to 4^5 = 1024 working tasks; at 100K and
+  leaf_size=4096 each does a ~3125 x ~3125 sub-multiply (5 levels down)
+  sequentially.
+- Without -fopenmp the pragmas are ignored: `PolyMult.time` is DCQ2.
+
+#### Implementation
+
+`04-DCP1/` (Makefile and run.sh copied from `04-DCQ2`, variant name
+`DCP1`; kernel in `src/PolyMult.c`). Built with no warnings (GCC accepts
+`in_reduction` on a function-parameter pointer matching the taskgroup's
+`task_reduction` item by address). Gate PASSED: oracle 42/42 and gold
+14/14, on both `PolyMult.check` and `PolyMult.check-par`. The gate runs
+leaf_size=64, depth=5; the parallel check sets no thread count, so
+OpenMP's default applies (16 threads, the `taskset -c 16-31` mask).
+
+#### Experiment
+
+Settings follow the PA3 BKP convention (user gave the go-ahead without
+specifying them): DCP1's own sequential baseline, then a 1-16 thread sweep
+at the defaults (leaf_size=4096, depth=5).
+
+```
+./sweep.sh --variant-dir 04-DCP1 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCP1 --dA 100000 --dB 100000 --threads 1:16:1 --reps 5 \
+    --name 2026.11.01.002_threads_100000x100000
+.venv/bin/python plot.py --csv 04-DCP1/results/2026.11.01.002_threads_100000x100000.csv \
+    --tpp-per-core 35.2 --topic ThreadSweep100000x100000 \
+    --title "DCP1 (tasks + taskgroup task_reduction, leaf 4096, depth 5), 100000x100000"
+```
+
+Gate passed in both sweeps. Load average 1.1 before, 3.1 after the thread
+sweep (the sweep itself uses 16 cores); no other user's jobs seen.
+
+Recorded T(seq): 1.5109 s (13.24 GF/s), matching DCQ2's 1.5107 s (the
+sequential binary is DCQ2). The thread sweep's T(seq) is this own entry
+(`seq_time_source: min of 3: own`).
+
+#### Results
+
+Median of 5. Speedup vs T(seq) = 1.5109 s; %TPP = GF/s / (35.2 x t):
+
+| t  | time (s) | GF/s  | speedup | % TPP | rep spread |
+|---:|---------:|------:|--------:|------:|-----------:|
+| 1  | 1.5129   | 13.2  | 1.00    | 37.6  | 0.1%       |
+| 2  | 0.7581   | 26.4  | 1.99    | 37.5  | 0.2%       |
+| 4  | 0.3813   | 52.4  | 3.96    | 37.3  | 0.5%       |
+| 6  | 0.2551   | 78.4  | 5.92    | 37.1  | 0.9%       |
+| 8  | 0.1924   | 104.0 | 7.85    | 36.9  | 0.7%       |
+| 10 | 0.1559   | 128.3 | 9.69    | 36.5  | 1.5%       |
+| 12 | 0.1310   | 152.6 | 11.53   | 36.1  | 1.5%       |
+| 13 | 0.1215   | 164.7 | 12.44   | 36.0  | 8.1%       |
+| 14 | 0.1128   | 177.4 | 13.39   | 36.0  | 1.9%       |
+| 15 | 0.1066   | 187.6 | 14.17   | 35.5  | 7.9%       |
+| 16 | 0.1004   | 199.2 | **15.05** | 35.4 | 0.4%      |
+
+(All 16 thread counts in the csv and plot.)
+
+- Speedup 15.05x at 16 threads (94% efficiency); 1 thread of the OpenMP
+  build matches the sequential binary (1.5129 vs 1.5109 s).
+- The per-core rate falls slowly and steadily, 37.6% -> 35.4% of TPP from
+  1 to 16 threads; no steps or drops at particular thread counts.
+- Rep spread <= 1.9% except t=13 and t=15 (one slow rep each, ~8%; the
+  medians are unaffected).
+- 199.2 GF/s at 16 threads is below BKP5's 397 GF/s (PA3); the per-core
+  rate is DCQ2's ~37% vs BKP5's ~71%.
+
+Plot: `04-DCP1/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
