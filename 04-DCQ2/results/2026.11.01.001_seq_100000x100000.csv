@@ -1,0 +1,7 @@
+variant,DCQ2
+dA,100000
+dB,100000
+seq_time,2.271639102
+seq_time_source,recorded via --record-seq (/s/chopin/g/under/C835301300/Parallel/PA4/04-DCQ2/results/2026.11.01.001_seq_100000x100000.csv)
+threads,rep1,rep2,rep3,rep4,rep5,rep6,rep7,median,mean_wo_outliers,gflops_median,gflops_mean_wo_outliers
+1,2.26872968,2.268371178,2.272001974,2.272987842,2.272829188,2.271639102,2.267020266,2.271639102,2.2705113185714287,8.80439150056504,8.808764721148341
