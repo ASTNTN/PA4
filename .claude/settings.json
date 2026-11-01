@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypassPermissionsMode": "disable",
+    "deny": [
+      "Bash(sudo *)"
+    ]
+  }
+}
