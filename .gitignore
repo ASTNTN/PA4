@@ -1,5 +1,5 @@
-*.o
 CLAUDE.md
 StudentInstruction.md
 **/bin/**
 **/__pycache__/**
+.venv/**

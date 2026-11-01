@@ -98,3 +98,80 @@ PA3-record.md / notes.md; not re-measured here):
 
 - DCQ at leaf=64 is slower than plain OPQ at a large size and slower than
   BKQ with 64x64 blocks (at a smaller size); not explained.
+
+#### Conclusion
+
+(To be stated by the student.)
+
+### DCQ.2: leaf size sweep
+
+#### Introduction
+
+DCQ.1 ran at 20.7% TPP with leaf_size=64, slower than OPQ and than BKQ
+with 64x64 blocks. Halving until a range is at most leaf_size leaves
+leaves somewhere between leaf_size/2 and leaf_size long, so leaf_size=64
+gives leaves of only 33-64 coefficients per side.
+
+#### Hypothesis
+
+(Student's reasoning.) The leaves are too small; larger leaf sizes should
+improve performance.
+
+#### Design / Experiment
+
+DCQ.1 code unchanged. Leaf-size sweep at the same size, 1 thread, 7 reps:
+
+```
+./sweep.sh --variant-dir 04-DCQ --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --tune leaf_size=16,32,64,96,128,256,512,1024,2048,4096,8192,16384 \
+    --name 2026.11.01.002_leaf_sweep_100000x100000
+../PA3/.venv/bin/python plot.py \
+    --csv 04-DCQ/results/2026.11.01.002_leaf_sweep_100000x100000.csv \
+    --tpp-per-core 35.2 --topic LeafSizeSweep100000x100000 \
+    --title "DCQ (OPQ leaf) leaf size sweep, 100000x100000, 1 core"
+```
+
+(PA4 has no `.venv` and the system Python lacks `xlsxwriter`, so PA4's
+plot.py was run with PA3's venv Python.) Gate passed inside the sweep.
+Another user's niced Python jobs were running (load average 1.8 before,
+2.6 after).
+
+#### Results
+
+Median of 7. "Leaf length" is the length of each side of a leaf at
+100001 coefficients: 100001 / 2^levels, the first halving at or below
+leaf_size (arithmetic, not measured).
+
+| leaf_size | levels | leaf length | time (s) | GF/s  | % TPP |
+|----------:|-------:|------------:|---------:|------:|------:|
+| 16        | 13     | ~12         | 9.564    | 2.09  | 5.9   |
+| 32        | 12     | ~24         | 5.029    | 3.98  | 11.3  |
+| 64        | 11     | ~49         | 2.738    | 7.30  | 20.8  |
+| 96        | 11     | ~49         | 2.737    | 7.31  | 20.8  |
+| 128       | 10     | ~98         | 1.857    | 10.77 | 30.6  |
+| 256       | 9      | ~195        | 1.707    | 11.72 | 33.3  |
+| 512       | 8      | ~391        | 1.655    | 12.08 | 34.3  |
+| 1024      | 7      | ~781        | 1.737    | 11.51 | 32.7  |
+| 2048      | 6      | ~1563       | 1.680    | 11.90 | 33.8  |
+| 4096      | 5      | ~3125       | 1.651    | **12.12** | **34.4** |
+| 8192      | 4      | ~6250       | 2.238    | 8.94  | 25.4  |
+| 16384     | 3      | ~12500      | 2.176    | 9.19  | 26.1  |
+
+Rep spread <= 0.3% everywhere except leaf_size=8192 (one rep +1.1%).
+
+- leaf_size 64 and 96 give the same time (both produce ~49-long leaves),
+  and match DCQ.1's baseline (2.741 s).
+- Rate rises steeply up to leaf length ~98 (5.9% -> 30.6%), then
+  plateaus at 32.7-34.4% for leaf lengths ~195-3125. Best: 12.12 GF/s
+  (34.4%) at leaf_size=4096, with 512 within 0.3%.
+- The plateau is not flat: 1024 (~781) dips below both 512 and 2048.
+- Above 4096 the rate drops to ~25-26%, near OPQ's large-size rate
+  (~26.5%).
+- The plateau (~34%) stays below BKQ's ~37% at 100K and far below BKQ7's
+  72%.
+
+Plot: `04-DCQ/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
+
+#### Conclusion
+
+(To be stated by the student.)
