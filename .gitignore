@@ -1,5 +1,5 @@
 *.o
 CLAUDE.md
-StudentInstructions.md
+StudentInstruction.md
 **/bin/**
 **/__pycache__/**
