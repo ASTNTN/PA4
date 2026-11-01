@@ -1,0 +1,266 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VARIANTS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="variants">VARIANTS</h1>
+<p>The student will explore these variants in sequence, each building on
+insights from prior stages. Claude is a robot: it implements what the
+student decides, not its own design choices. This document specifies
+what each variant should accomplish.</p>
+<hr />
+<h2 id="00-gsq-grade-school-reference">00-GSQ: Grade-School Reference</h2>
+<p>Computes the polynomial-multiplication definition directly, with no
+parallelism. Once validated, GSQ is the gold standard every later
+variant's correctness is checked against.</p>
+<hr />
+<h2 id="01-opq-outer-product-loop-order">01-OPQ: Outer-Product Loop Order</h2>
+<p>Reorganize the loops to expose outer-product structure:</p>
+<p>for i = 0 to dA:
+    for j = 0 to dB:
+        // NEW LOOP BODY</p>
+<p>Parallel variants: <code>OPP1</code>, <code>OPP2</code>, etc.</p>
+<hr />
+<h2 id="02-exq-loop-exchange">02-EXQ: Loop Exchange</h2>
+<p>Exchange the i and j loops:</p>
+<p>for j = 0 to dB:
+    for i = 0 to dA:
+        // NEW LOOP BODY</p>
+<p>Parallel variants: <code>EXP1</code>, <code>EXP2</code>, etc.</p>
+<hr />
+<h2 id="03-bkq-blocked">03-BKQ: Blocked</h2>
+<p>Apply blocking to the loop nest, using square blocks only.</p>
+<p>Parallel variants: <code>BKP1</code>, <code>BKP2</code>, etc.</p>
+<hr />
+<h2 id="04-dcq-divide-and-conquer">04-DCQ: Divide-and-Conquer</h2>
+<p>Recursively divide into quadrants, switching to the best-performing
+blocked variant below a leaf-size threshold. The leaf size is to be
+explored.</p>
+<hr />
+<h2 id="05-dcp-divide-and-conquer-parallel">05-DCP: Divide-and-Conquer Parallel</h2>
+<p>Parallelize DCQ using OpenMP tasks. Each strategy explored gets its own
+variant directory (<code>DCP1</code>, <code>DCP2</code>, ...), with the common infrastructure
+copied into each, per the naming convention in <code>DESIGN.md</code>.</p>
+<hr />
+<h2 id="progression">Progression</h2>
+<p>GSQ -&gt; OPQ, EXQ, BKQ -&gt; DCQ -&gt; DCP</p>
+    </div>
+</body>
+</html>

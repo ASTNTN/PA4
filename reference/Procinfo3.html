@@ -1,0 +1,610 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intel Core i9-13900K Architecture Details for Performance, Part 3:</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="intel-core-i9-13900k-architecture-details-for-performance-part-3">Intel Core i9-13900K Architecture Details for Performance, Part 3:</h1>
+<h1 id="reading-real-measurements">Reading Real Measurements</h1>
+<hr />
+<h2 id="recap-of-procinfo1-and-procinfo2">Recap of Procinfo1 and Procinfo2</h2>
+<p>The full detail is in those two documents; the pieces this one builds on:</p>
+<ul>
+<li>A core's floating-point peak comes from <code>Cores × Frequency ×
+  Operations/cycle</code> (Procinfo1 § 2), and "Operations/cycle" itself comes
+  from counting execution <strong>ports</strong> — how many instructions of a given
+  kind a core can <em>start</em> in one cycle (Procinfo2 § 1.A-C).</li>
+<li><strong>Throughput</strong> (how often work can start) and <strong>latency</strong> (how long one
+  piece of work takes to finish) are different numbers, and mixing them
+  up is the single most common source of confusion (Procinfo2 § 2.A).</li>
+<li>The <strong>cache hierarchy</strong> — L1 → L2 → L3 → DRAM, each level bigger and
+  slower than the last — determines how long a load takes; the <strong>port
+  count</strong> determines how many loads can be <em>started</em> per cycle,
+  independently of that latency (Procinfo1 § 4, Procinfo2 § 2.B).</li>
+<li>E-cores sit in <strong>clusters of 4, sharing one L2 per cluster</strong> (Procinfo1
+  § 1).</li>
+</ul>
+<p>Everything above describes a core's <em>capacity</em> — the ceiling a program
+could reach in principle. None of it, by itself, explains why a real,
+measured program falls short of that ceiling, or by how much, or why.
+That's what this document is for.</p>
+<hr />
+<h2 id="1-the-topdown-microarchitecture-analysis-tma-method">1. The Topdown Microarchitecture Analysis (TMA) Method</h2>
+<p>Port-counting (Procinfo2 § 1) answers "what is the ceiling?" It cannot
+answer "why is a <em>specific, measured</em> run sitting well below that
+ceiling?" — there are too many possible reasons (waiting on memory,
+waiting on a wrongly guessed branch, simply not having enough decoded
+instructions ready to issue) for port-counting alone to distinguish
+between them. TMA is a method, built into the hardware's own
+performance counters (§ 5), for answering exactly that question from a
+real measurement.</p>
+<h3 id="1a-the-front-end-and-the-back-end-two-halves-of-a-core">1.A The front end and the back end: two halves of a core</h3>
+<p>Every core is organized into two cooperating halves, and TMA's whole
+vocabulary is built on this split.</p>
+<ul>
+<li>The <strong>front end</strong> fetches the next instructions from memory (through
+  the L1 <em>instruction</em> cache, separate from the L1 <em>data</em> cache
+  Procinfo2 talks about) and <strong>decodes</strong> them — translates the raw
+  bytes of an instruction into the internal signals the rest of the
+  core acts on. Its job is to keep a steady stream of decoded work
+  flowing toward the back end. It also has a hard limit of its own: how
+  many instructions it can fetch and decode per cycle, regardless of
+  how idle the back end is.</li>
+<li>The <strong>back end</strong> is everything Procinfo2 § 1 already covers — the
+  ports, the functional units (the FMA unit, load/store units, integer
+  units), the actual execution of decoded work, and (§ 2 below) the
+  memory system behind it.</li>
+</ul>
+<p>Either half can be the bottleneck independently of the other. A back
+end with plenty of spare capacity is useless if the front end isn't
+handing it work fast enough. A front end supplying plenty of decoded
+instructions is useless if the back end has nowhere to put them yet.</p>
+<h3 id="1b-pipeline-slots-the-unit-behind-every-tma-percentage">1.B Pipeline slots: the unit behind every TMA percentage</h3>
+<p>A core issues instructions in a steady rhythm, one opportunity per
+cycle per <strong>slot</strong> it has available (a slot is roughly: one chance to
+start one micro-operation this cycle). Over the whole run, the total
+number of slots that existed is fixed by how many cycles the run took.
+TMA's job is to classify every one of those slots into exactly one of
+four buckets, so the four percentages below always add up to 100%.</p>
+<h3 id="1c-the-four-top-level-categories">1.C The four top-level categories</h3>
+<ul>
+<li><strong>Retiring</strong> — the slot did useful work that made it all the way to
+  completion. This is the number you want to be high.</li>
+<li><strong>Bad Speculation</strong> — the slot was spent on an instruction that
+  turned out to be unnecessary, almost always because a branch (an
+  <code>if</code>, or a loop's continue-or-exit test) was predicted the wrong way
+  and the core had already started executing down the wrong path.</li>
+<li><strong>Frontend Bound</strong> — a front-end limit (§ 1.A): the back end was ready
+  and waiting, but fetch/decode couldn't supply instructions fast
+  enough to keep it fed.</li>
+<li><strong>Backend Bound</strong> — a back-end limit (§ 1.A): the front end supplied
+  instructions just fine, but the back end couldn't execute them yet —
+  either the execution units themselves were busy/full, or an
+  instruction was waiting on data that hadn't arrived from memory.</li>
+</ul>
+<p><strong>Worked-out example.</strong> Suppose a measured run reports: Retiring 55%,
+Bad Speculation 2%, Backend Bound 35%, Frontend Bound 8%. Bad
+Speculation being small says branches in this loop are easy to
+predict — nothing like an unpredictable <code>if</code>. Backend Bound at 35%
+says: over a third of all the run's slots were lost specifically to
+the execution/memory side, not to branch guessing or instruction
+supply — worth investigating further with § 1.D below.</p>
+<h3 id="1d-backend-bounds-second-level-core-bound-vs-resource-bound">1.D Backend Bound's second level: Core Bound vs. Resource Bound</h3>
+<p>Backend Bound only says "the back end was the problem" — it doesn't yet
+say <em>which part</em> of the back end. One more level down splits it in two:</p>
+<ul>
+<li><strong>Core Bound</strong> — the execution <em>ports themselves</em> were the
+  constraint: not enough independent work was available to keep them
+  full (Procinfo2 § 2.A's "independent chains" idea), or every port that
+  could do the needed work was already busy.</li>
+<li><strong>Resource Bound</strong> (memory-bound, in Intel's usual naming for
+  non-Atom cores) — some <em>other</em> limited resource, usually somewhere in
+  the memory pipeline, was full or busy, even though the execution
+  ports themselves had room to spare.</li>
+</ul>
+<p><strong>Worked-out example, continuing from § 1.C.</strong> That 35% Backend Bound
+splits into Core Bound 4%, Resource Bound 31%. That's decisive: the
+execution ports were almost never the constraint. Nearly all of the
+shortfall is on the memory-resource side — which sends you looking at
+§ 2 below, not at the ports.</p>
+<h3 id="1e-running-and-reading-a-topdown-report">1.E Running and reading a topdown report</h3>
+<p>The command that produces these numbers is:</p>
+<pre><code>perf stat --topdown -- &lt;program and its arguments&gt;
+</code></pre>
+<p>(§ 5 below covers <code>perf</code> itself and a wrinkle specific to this
+machine's two core types.) It prints the four § 1.C categories directly;
+adding <code>--td-level=2</code> prints the § 1.D split as well.</p>
+<p>Read the output top-down, literally: check Bad Speculation and
+Frontend Bound first (usually small, quick to rule out), then decide
+whether Backend Bound is Core Bound or Resource Bound before going any
+further — that answer determines which of §§ 2-4 below is even
+relevant to what you're looking at.</p>
+<hr />
+<h2 id="2-memory-behavior-beyond-cache-size-prefetching-and-queues">2. Memory Behavior Beyond Cache Size: Prefetching and Queues</h2>
+<p><code>Procinfo1</code> § 4 gives cache <em>sizes</em> and <em>latencies</em>. The natural
+conclusion — "an array much bigger than L1 will mostly miss it" — is a
+reasonable first guess, and it can still be wrong. Two more mechanisms
+decide what really happens.</p>
+<h3 id="2a-hardware-prefetching">2.A Hardware prefetching</h3>
+<p>A core watches the pattern of memory addresses a program is actually
+reading. If that pattern is simple and predictable — most obviously,
+"the next cache line after the one I just used" — dedicated hardware
+(the <strong>prefetcher</strong>) starts fetching <em>further ahead</em> addresses into the
+cache <em>before</em> the program has asked for them. If the prefetcher stays
+far enough ahead, by the time the program's own load instruction
+actually runs, the data is already sitting in L1 — and the load
+retires as a <strong>hit</strong>, not a miss, even though the array as a whole is
+far too big to stay resident.</p>
+<p>Prefetching hides <em>latency</em>, not the underlying <em>traffic</em>: the bytes
+still have to travel from L2 (or further) into L1 exactly once per
+cache line, same as an unprefetched miss would cost — the prefetcher
+just makes sure that trip happens early enough that the program's own
+load never has to wait for it.</p>
+<p><strong>Worked-out example.</strong> A loop streams through an array many times
+larger than L1, always in the same increasing order each pass — about
+as predictable as a memory access pattern can be. A naive size argument
+predicts a low L1 hit rate. Measured hit rate is instead <strong>90%</strong>: the
+prefetcher recognizes the simple forward pattern and stays ahead of it.</p>
+<h3 id="2b-loadstore-queues-a-resource-separate-from-ports">2.B Load/store queues: a resource separate from ports</h3>
+<p>Procinfo2 § 1 counts <em>ports</em> — how many load/store instructions can be
+<em>started</em> in a given cycle. That's not the same question as how many
+loads/stores can be <em>outstanding at once</em> (issued but not yet
+completed). Every in-flight memory operation needs a tracking entry in
+a small hardware structure (a <strong>load queue</strong> / <strong>store queue</strong>) until
+it finishes. That structure has a fixed, fairly small number of
+entries. If every entry is in use — because operations are taking a
+while to complete, even at a fast L1/L2 latency, and new ones keep
+arriving — the core has to stall issuing further memory operations even
+though the <em>ports</em> still have room, and even though most of those
+operations are hitting, not missing.</p>
+<h3 id="2c-putting-a-and-b-together">2.C Putting A and B together</h3>
+<p>This is the shape of a Resource Bound result like § 1.D's worked
+example: high L1 hit rate (prefetching is doing its job), ports with
+room to spare (Core Bound near zero), and still a large Resource Bound
+share. The explanation is neither "loads are missing the cache" (they
+mostly aren't) nor "the ports are out of room" (they aren't) — it's
+that a high volume of loads and stores cycling through a comparatively
+small tracking structure, one entry per in-flight operation, is itself
+enough to constrain throughput, even when almost everything that
+structure is tracking is a fast hit.</p>
+<h3 id="2d-what-one-vector-load-costs">2.D What one vector load costs</h3>
+<p><em>(New section, added 2026-09-25.)</em></p>
+<p>Procinfo2 § 1 counts load <em>ports</em> (2 on an E-core). Three more facts decide
+how much of that capacity a loop with vector loads really gets.</p>
+<p><strong>A wide load uses more of a port.</strong> A load instruction is carried out as one
+or more small internal steps called <em>micro-operations</em> (uops), and each load
+port starts one uop per cycle. On the E-core a port handles 16 bytes (128
+bits) at a time. A scalar or 128-bit load is one uop; a 256-bit vector load
+(8 floats) is two, and it takes both ports for a cycle. Measured with a small
+test loop: scalar, 128-bit and broadcast loads run at two per cycle, 256-bit
+loads at one per cycle. So for 256-bit vector code the load budget is about
+<strong>one vector load per FMA</strong>, not the two loads per FMA that Procinfo2 § 1's
+port counts suggest (that figure holds for loads of 128 bits or less). The
+counter <code>mem_uops_retired.all_loads</code> counts uops, so a 256-bit load adds 2. An
+FMA can also take one input straight from memory; that is a load too, and it
+costs the same two uops, but the value never occupies a register.</p>
+<p><strong>Cache-line splits.</strong> Memory moves in 64-byte cache lines (Procinfo1 § 4). A
+load is <em>split</em> when part of it is in one line and the rest in the next, and a
+split load takes twice as long: a 128-bit load goes from 0.5 to 1.0 cycle, a
+256-bit load from 1.0 to 2.0. The hardware works in 16-byte halves, so a
+256-bit load splits only if one of its halves straddles a line boundary; a
+load that starts on a multiple of 16 bytes never does. The counter
+<code>mem_uops_retired.split_loads</code> counts them. A window that slides by one 4-byte
+float per step starts at a different offset each time, and then roughly one
+half in five splits.</p>
+<p><strong>Lane shifts.</strong> A vector register holds 8 numbers in fixed positions
+(<em>lanes</em>). If a loop needs the same numbers again one position over, as with a
+sliding window, they are now in the wrong lanes, and moving them takes extra
+instructions (<em>shuffles</em>, or lane shifts). Without them the program simply
+loads the window again and pays the load cost again. What shuffles cost on
+this core has not been measured.</p>
+<p><strong>Worked-out example.</strong> A loop has six independent vector accumulators (so the
+FMA latency of Procinfo2 § 2.A is hidden) and, for every six FMAs, six 256-bit
+loads of a sliding window plus one broadcast. The load ports need
+6 x 1 + 0.5 = 6.5 cycles per six FMAs, already 1.08 cycles per FMA before any
+split. In three of the four possible 4-byte alignments, 3 of the 6 loads
+split, adding 3 cycles, so on average the ports need about 8.75 cycles, or
+1.46 per FMA. The measured value is 1.43. The load ports are the limit, and it
+shows up as a full load queue (§ 2.B); the counter calls that structure
+<code>mem_scheduler_block.ld_buf</code>, the <em>load buffer</em>.</p>
+<hr />
+<h2 id="3-multiple-cores-sharing-a-cache">3. Multiple Cores Sharing a Cache</h2>
+<h3 id="3a-clusters-and-shared-l2-revisited">3.A Clusters and shared L2, revisited</h3>
+<p>Procinfo1 § 1 already states that E-cores come in clusters of 4,
+sharing one L2 per cluster; Procinfo2 § 1's port-counting is entirely
+about a <em>single</em> core and says nothing about what happens once several
+cores in the same cluster are active simultaneously. The single fact
+needed here: L2 bandwidth for a cluster is a <strong>shared pipe with a fixed
+total capacity</strong> — it is not "N cores x (one core's bandwidth)". Once
+more than one core in a cluster is actively streaming through L2 (via
+the prefetching mechanism of § 2.A, for data that doesn't fit in L1),
+those cores are dividing one fixed-size pipe, not each getting their
+own.</p>
+<h3 id="3b-thread-to-core-placement-affinity-is-a-real-controllable-variable">3.B Thread-to-core placement (affinity) is a real, controllable variable</h3>
+<p>Which physical core a given software thread runs on is not automatic —
+it's set explicitly (via tools like <code>taskset</code> for a whole process, and
+OpenMP's <code>OMP_PLACES</code> for individual threads within it). This matters a
+great deal for § 3.A: if 4 threads are placed round-robin, one per
+cluster, none of them share a cluster's L2 at all. If the same 4
+threads were instead packed sequentially into one cluster, all 4 would
+immediately be contending for that one cluster's shared pipe. Same
+thread count, same code, very different performance — purely from a
+placement decision.</p>
+<h3 id="3c-worked-out-example-a-sawtooth">3.C Worked-out example: a sawtooth</h3>
+<p>Suppose 4 clusters of 4 cores each, threads placed round-robin (one per
+cluster first, before any cluster gets a second thread) — so the first
+4 threads share nothing. A sweep from 1 to 16 threads then shows a
+pattern like:</p>
+<table>
+<thead>
+<tr>
+<th>threads/cluster</th>
+<th>t (start of that load)</th>
+<th>throughput</th>
+<th>pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>4</td>
+<td>28</td>
+<td>symmetric — local peak</td>
+</tr>
+<tr>
+<td>2</td>
+<td>5</td>
+<td>24</td>
+<td>1 cluster just doubled up — <strong>drop</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>8</td>
+<td>34</td>
+<td>symmetric again — local peak</td>
+</tr>
+<tr>
+<td>3</td>
+<td>9</td>
+<td>27</td>
+<td>1 cluster just tripled up — <strong>drop</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>12</td>
+<td>33</td>
+<td>symmetric again — local peak</td>
+</tr>
+<tr>
+<td>4</td>
+<td>13</td>
+<td>29</td>
+<td>1 cluster just quadrupled up — <strong>drop</strong></td>
+</tr>
+<tr>
+<td>4</td>
+<td>16</td>
+<td>32</td>
+<td>symmetric, all clusters full</td>
+</tr>
+</tbody>
+</table>
+<p>Two things to notice: a drop exactly when a new thread has to double up
+an already-loaded cluster before the rest of that "wave" catches up and
+the pattern turns back into a local peak; and each wave's peak-to-peak
+gain (28→34→33→32) shrinking — once a cluster's shared pipe is already
+contended, adding one more competitor to it matters less each time.</p>
+<hr />
+<h2 id="4-cache-coherence-and-false-sharing">4. Cache Coherence and False Sharing</h2>
+<p>Multiple cores don't just compete for a cache's <em>bandwidth</em> (§ 3) —
+they also have to stay <em>consistent</em> with each other about what's in a
+given cache line, and that consistency has a real cost of its own,
+separate from bandwidth.</p>
+<h3 id="4a-why-writing-nearby-memory-from-multiple-cores-is-expensive">4.A Why writing nearby memory from multiple cores is expensive</h3>
+<p>Every core keeps its own copy of recently-used cache lines. If two
+different cores are writing to memory addresses that fall in the
+<em>same</em> 64-byte cache line — even if they're logically writing to
+different individual values within it — the hardware has to keep those
+cores' copies of that line consistent: when one core writes its copy,
+every other core's copy of that same line has to be invalidated and
+refetched before it can be used again. This invalidate-and-refetch
+traffic (<strong>cache coherence traffic</strong>) happens automatically, is
+required for correctness even when the program itself has no data
+race, and can be expensive if it happens often. When it's specifically
+caused by two threads owning <em>different</em> values that just happen to
+land in the same cache line, this is called <strong>false sharing</strong> — false
+because the values aren't actually shared, only the cache line they
+happen to sit in is.</p>
+<h3 id="4b-worked-out-example">4.B Worked-out example</h3>
+<p>Take a correct parallel loop and deliberately remove the
+synchronization that normally keeps one thread from touching a region
+of an output array that another thread is still writing, <em>and</em> divide
+the work into many small, interleaved chunks across threads rather
+than a few large contiguous ones. The result isn't just "a bit slower
+from lost synchronization" — it can be <strong>slower than running with a
+single thread</strong>. The small interleaved chunks mean many different
+threads' assigned regions are now physically close together in memory,
+all being written concurrently with no ordering — turning what would
+have been a handful of large, occasional collisions into constant
+coherence traffic between nearly every pair of active cores. The
+lesson: an incorrect program isn't just "wrong" — it can be wrong in
+ways whose <em>performance</em> signature is a direct clue to what mechanism
+it broke.</p>
+<hr />
+<h2 id="5-measuring-instead-of-predicting">5. Measuring Instead of Predicting</h2>
+<p>Everything in <code>Procinfo1</code>/<code>Procinfo2</code> and §§ 1-4 above is either a
+vendor-published number or a model built from one. None of it tells you
+what a <em>specific program, on this specific machine, actually did</em>. That
+requires measurement — and the machine itself can do that measurement
+essentially for free while a program runs.</p>
+<h3 id="5a-hardware-performance-counters-and-the-pmu">5.A Hardware performance counters and the PMU</h3>
+<p>Every core has a small set of dedicated hardware counters, collectively
+called the <strong>PMU</strong> (performance monitoring unit), that can each be
+configured to count one specific kind of event as the program runs —
+"how many instructions retired," "how many loads hit L1," "how many
+cycles were spent stalled on a load that hit L2" (this is literally
+where the § 1/2 numbers above come from). Reading these counters adds
+essentially no overhead to the program being measured; they're separate
+hardware, counting silently in the background.</p>
+<h3 id="5b-perf-stat-and-picking-the-right-event-name">5.B <code>perf stat</code>, and picking the right event name</h3>
+<p><code>perf stat</code> is the standard Linux tool for reading PMU counters from
+the command line — point it at a program (or a running process), tell
+it which events to count, and it prints the totals when the program
+finishes. Two practical points:</p>
+<ul>
+<li><strong>Not every event has one universal name.</strong> A friendly name like
+  <code>L1-dcache-load-misses</code> is really an alias for a specific counter
+  configuration, and that configuration isn't guaranteed to exist (or
+  be exposed the same way) on every CPU. When an alias isn't available,
+  <code>perf list</code> shows the CPU's own raw event names to use instead.</li>
+<li><strong><code>perf stat --topdown</code></strong> prints the § 1 categories directly, without
+  needing to know individual event names at all.</li>
+</ul>
+<h3 id="5c-this-machines-hybrid-core-wrinkle">5.C This machine's hybrid-core wrinkle</h3>
+<p>Because this chip has two different kinds of core (P-core and E-core,
+<code>Procinfo1</code> § 1), it actually has <em>two separate PMUs</em> with overlapping
+but not identical event names — <code>perf</code> calls them <code>cpu_core</code> (P-core)
+and <code>cpu_atom</code> (E-core). Running <code>perf stat</code> without specifying which
+one produces output for <em>both</em>, most of it "not counted" (zero,
+because the program only ran on one type), which is confusing to read.
+Restricting explicitly (<code>perf stat --cputype cpu_atom ...</code>, matching
+whichever core type the program was actually bound to) gives clean,
+single-PMU output.</p>
+<h3 id="5d-papi-the-programmatic-alternative">5.D PAPI, the programmatic alternative</h3>
+<p><strong>PAPI</strong> (Performance API) reads the same underlying PMU counters as
+<code>perf</code>, but as a library your own program links against and calls
+directly, rather than an external command wrapping the whole program.
+Useful when you want counter values for just <em>part</em> of a run (e.g.
+"only while the hot loop executes," not the whole program including
+setup/teardown) or want the numbers available inside the program itself
+rather than parsed back out of a tool's text output. Same hardware,
+same PMU, different way of asking it questions.</p>
+<h3 id="5e-ipc-a-starting-number-not-an-ending-one">5.E IPC: a starting number, not an ending one</h3>
+<p><strong>IPC</strong> (instructions retired per cycle) is the simplest possible
+summary of a run — one number, easy to compute, easy to compare. It is
+also easy to over-read: a "reasonable" IPC doesn't distinguish between
+a run doing a lot of genuinely useful work and one doing a lot of
+necessary-but-non-computational work (loop bookkeeping, address
+arithmetic, redundant loads/stores). A middling IPC can look
+unremarkable on its own; only a topdown breakdown (§ 1) reveals whether
+the slots behind it were mostly retiring or mostly backend-bound — IPC
+alone can't show that.</p>
+    </div>
+</body>
+</html>

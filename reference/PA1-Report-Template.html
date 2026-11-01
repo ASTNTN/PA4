@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PA1 Report: Tuning Mandelbrot for Near-Perfect Speedup</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; line-height: 1.5; max-width: 900px; margin: auto; padding: 20px; }
+    h1, h2, h3 { color: #003366; }
+    table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+    table, th, td { border: 1px solid #666; padding: 6px; }
+    th { background-color: #ddd; }
+    code { background-color: #f4f4f4; padding: 2px 4px; }
+    .fill { color: #666; font-style: italic; }
+    .iteration { border: 2px solid #003366; border-radius: 6px; padding: 5px 20px; margin: 25px 0; }
+    .howto { background-color: #fff3cd; border-left: 4px solid #b8860b; padding: 10px 15px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+<h1>PA1 Report: Tuning Mandelbrot for Near-Perfect Speedup</h1>
+
+<p><b>Name:</b> <span class="fill">[your name]</span><br>
+<b>Date:</b> <span class="fill">[date]</span></p>
+
+<div class="howto"><b>How to use this template.</b> Each iteration of your
+investigation gets its own boxed block below, with all five sections
+(Question, Hypothesis, Experiment Design, Analysis, Conclusions) filled in
+&mdash; even briefly. Copy the whole
+<code>&lt;div class="iteration"&gt;...&lt;/div&gt;</code> block for each
+additional iteration you run; two are stubbed in below to start you off.
+Question is the one section you may sometimes skip (see the assignment
+instructions) &mdash; if you skip it, say in one line why it was obvious
+rather than deleting the heading. Delete this box, and any unused stub
+iterations, before you submit.</div>
+
+<hr>
+
+<h2>Starting Point</h2>
+<p>Baseline verification (Stage 1) and a one-paragraph reminder of what your
+Lab 1 analysis predicted, so a reader doesn't have to go dig it up:</p>
+<p class="fill">[check-par output / confirmation, plus your Lab 1
+max/avg imbalance numbers restated briefly as your jumping-off point]</p>
+
+<hr>
+
+<h2>Iteration 1</h2>
+<div class="iteration">
+
+<h3>Question</h3>
+<p class="fill">[What are you trying to find out before you start tuning?
+Your first iteration should always have one.]</p>
+
+<h3>Hypothesis</h3>
+<p class="fill">[A specific, falsifiable prediction. Ground it in your own
+Lab 1 numbers where you can &mdash; "I expect X" is weaker than "I expect
+max/avg to drop from 2.1 to near 1.0 at p=24."]</p>
+
+<h3>Experiment Design</h3>
+<p class="fill">[Exact schedule/chunk size(s) tested, thread counts, image
+parameters (-w/-h/-i), number of trials. Specific enough that someone else
+could reproduce this without asking you anything.]</p>
+
+<h3>Analysis</h3>
+<p class="fill">[Run what you described in Experiment Design, then put the
+resulting data right here &mdash; an embedded plot or a small table.
+Then: does it support or refute your Hypothesis? Compare directly against
+what you predicted.]</p>
+
+<h3>Conclusions</h3>
+<p class="fill">[What you now believe, and what you'll try next (or why
+you're done). This should motivate the next iteration's Question or
+Hypothesis.]</p>
+
+</div>
+
+<h2>Iteration 2</h2>
+<div class="iteration">
+
+<h3>Question</h3>
+<p class="fill">[If this iteration is an obvious continuation of Iteration
+1's Conclusions, you may skip straight to Hypothesis instead &mdash; say
+so in one line here rather than deleting this heading.]</p>
+
+<h3>Hypothesis</h3>
+<p class="fill">[...]</p>
+
+<h3>Experiment Design</h3>
+<p class="fill">[...]</p>
+
+<h3>Analysis</h3>
+<p class="fill">[...]</p>
+
+<h3>Conclusions</h3>
+<p class="fill">[...]</p>
+
+</div>
+
+<p class="fill">[Copy the boxed block above for Iteration 3, 4, ... as
+needed. Stop iterating once your Conclusions say you've hit the target.]</p>
+
+<hr>
+
+<h2>Summary</h2>
+<p><b>Final winning configuration:</b>
+<span class="fill">[exact schedule(...) clause]</span></p>
+<p><b>Final measured efficiency:</b>
+<span class="fill">[value(s), vs. the 0.90 target]</span></p>
+<p><b>Final speedup plot:</b>
+<span class="fill">[embed or reference final_range.xlsx plot]</span></p>
+<p><b>One paragraph:</b> looking back across all your iterations, what was
+the single most useful thing you learned about why the default schedule
+performed the way it did?</p>
+<p class="fill">[...]</p>
+
+<hr>
+
+<h2>Stage 4: Other OpenMP Clauses <span class="fill">(CS575: required &mdash; CS475: delete this section if not attempting the extra credit)</span></h2>
+<p class="fill">[Same modular format as your iterations above: which
+clause, your Question/Hypothesis if applicable, Experiment Design,
+Analysis (data + comparison to your hypothesis), Conclusions. Copy the
+block below once per clause tried.]</p>
+<div class="iteration">
+
+<h3>Clause tried</h3>
+<p class="fill">[e.g. collapse(2), proc_bind(spread), num_threads(8), simd, if(...)]</p>
+
+<h3>Hypothesis</h3>
+<p class="fill">[...]</p>
+
+<h3>Experiment Design</h3>
+<p class="fill">[...]</p>
+
+<h3>Analysis</h3>
+<p class="fill">[...]</p>
+
+<h3>Conclusions</h3>
+<p class="fill">[...]</p>
+
+</div>
+
+</body>
+</html>

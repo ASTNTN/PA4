@@ -1,0 +1,353 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DESIGN</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="design">DESIGN</h1>
+<p>Read <code>READ_ME_FIRST.md</code> first. This document explains the code
+structure and desgn of the common <code>C</code> code harness and the kernel
+interface. Neither Claude nor the user will normally need to modify it.
+If a bug fix is required, ask the user to report it to the insructors.</p>
+<h2 id="layout">Layout</h2>
+<ul>
+<li><code>shared/include/kernel.h</code> — the interface every variant implements.</li>
+<li><code>shared/include/accumulate.h</code> — the accumulation macro that EVERY
+  VARIANT MUST USE (reasons are given below).</li>
+<li><code>shared/harness/args.{c,h}</code> — CLI argument parsing (<code>bpm_args_t</code>,
+  <code>bpm_parse_args</code>).</li>
+<li><code>shared/harness/range.{c,h}</code> — thread-range parsing (<code>-t</code>).</li>
+<li><code>shared/harness/oracle.{c,h}</code> — the oracle suite.</li>
+<li><code>shared/harness/gold.h</code>, <code>shared/harness/gold.o</code> — the gold-comparison
+  suite (linked by every variant except <code>GSQ</code>). Provided as a
+  precompiled object only — <code>gold.c</code> itself is never distributed to
+  students, and is never rebuilt by a variant's own <code>Makefile</code>.</li>
+<li><code>shared/harness/time_main.c</code> — builds <code>PolyMult.time[-par]</code>: fills
+  random inputs, times <code>kernel_multiply</code>, prints one raw csv row per
+  repetition to stdout.</li>
+<li><code>shared/harness/check_main.c</code> — builds <code>PolyMult.check[-par]</code>: runs
+  the oracle suite, and the gold suite if <code>BPM_HAVE_GOLD</code> is defined.</li>
+</ul>
+<h2 id="the-kernel-contract">The kernel contract</h2>
+<p>Every variant defines <code>kernel_multiply</code> in its own <code>src/</code>, matching
+the signature in <code>shared/include/kernel.h</code>. What isn't obvious just
+from reading the header:</p>
+<ul>
+<li><code>dA</code> and <code>dB</code> are independent — never assume <code>dA == dB</code>.</li>
+<li>Every pointer parameter must be <code>restrict</code>-qualified, on the
+  definition as well as the declaration. This isn't compiler-enforced
+  — it's a promise that <code>a</code>, <code>b</code>, <code>c</code> never alias each other or
+  internally, which licenses optimizations the compiler couldn't
+  otherwise make.</li>
+<li>A variant with a compile-time parameter (a <code>-D</code>, not a runtime flag)
+  must define <code>kernel_build_params(void)</code>, returning a
+  <code>key=value;key=value</code> string. A variant with none defines nothing —
+  <code>time_main.c</code> supplies a weak default returning <code>""</code>.</li>
+</ul>
+<h2 id="accumulation">Accumulation</h2>
+<p>Every loop body must use <code>BPM_ACC</code>, from
+<code>shared/include/accumulate.h</code>, in place of a direct accumulation
+statement:</p>
+<pre><code class="language-c">BPM_COMP_DECL(comp, n);   /* once, before the accumulation loop */
+...
+BPM_ACC(c, comp, k, term);  /* c[k] += term, for every accumulation */
+...
+BPM_COMP_FREE(comp);
+</code></pre>
+<p>Skipping the macro will fail the correctness check: our
+transformations often change the order of accumulations, which
+introduces significant numerical error, so during checking we use
+Kahan's algorithm to get a precise answer to compare against.</p>
+<h2 id="build-system">Build system</h2>
+<p>One <code>Makefile</code> per variant directory, following <code>00-GSQ/Makefile</code>:</p>
+<pre><code>CHECK_SRCS = $(SRC) $(HARNESS)/oracle.c $(HARNESS)/check_main.c
+TIME_SRCS  = $(SRC) $(HARNESS)/range.c $(HARNESS)/args.c $(HARNESS)/time_main.c
+</code></pre>
+<p>Four targets, into <code>bin/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Binary</th>
+<th>Sources</th>
+<th>Flags</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PolyMult.check</code></td>
+<td><code>CHECK_SRCS</code></td>
+<td><code>-DCHECKING</code></td>
+</tr>
+<tr>
+<td><code>PolyMult.check-par</code></td>
+<td><code>CHECK_SRCS</code></td>
+<td><code>-DCHECKING -DPAR -fopenmp</code></td>
+</tr>
+<tr>
+<td><code>PolyMult.time</code></td>
+<td><code>TIME_SRCS</code></td>
+<td><code>-ffast-math</code></td>
+</tr>
+<tr>
+<td><code>PolyMult.time-par</code></td>
+<td><code>TIME_SRCS</code></td>
+<td><code>-ffast-math -DPAR -fopenmp</code></td>
+</tr>
+</tbody>
+</table>
+<p>All four also get <code>-DBPM_VARIANT='"&lt;name&gt;"'</code>. For a non-<code>GSQ</code> variant,
+<code>PolyMult.check</code>/<code>.check-par</code> also get <code>-DBPM_HAVE_GOLD</code> and link two
+extra objects: <code>$(HARNESS)/gold.o</code> (provided, precompiled — see
+Layout above) and a fresh per-variant recompile of GSQ's own
+<code>src/PolyMult.c</code> with <code>kernel_multiply</code> renamed to <code>bpm_gold_multiply</code>
+(so gold.o can call it as the reference alongside this variant's own
+<code>kernel_multiply</code>). Neither takes this variant's own
+<code>-DBPM_VARIANT</code>/<code>-DPAR</code> defines — <code>gold.o</code> is variant-agnostic, and the
+GSQ recompile must stay GSQ's true checking build regardless of which
+variant links it.</p>
+<p>List every header the sources include (<code>kernel.h</code>, <code>accumulate.h</code>,
+<code>args.h</code>, <code>range.h</code>, <code>oracle.h</code>, and any variant-specific header) as a
+prerequisite of every binary target. Without this, editing a header
+leaves stale binaries in place and a correctness gate silently re-runs
+old code.</p>
+<h2 id="cli-reference">CLI reference</h2>
+<p><code>PolyMult.time[-par]</code>:</p>
+<pre><code>-dA &lt;int&gt;              degree of polynomial A
+-dB &lt;int&gt;              degree of polynomial B
+-t &lt;range&gt;             thread count(s): enumeration, stride, or powers of 2
+-r &lt;int&gt;               repetitions per configuration (default: 3)
+--tune KEY=VALUE       runtime tuning knob (e.g. --tune block_size=64);
+                       repeatable; ignored by a kernel that doesn't ask
+                       for KEY (see kernel.h's bpm_tune_get)
+</code></pre>
+<p><code>PolyMult.check[-par]</code>: <code>[-h|--help]</code> only. <code>-dA</code>/<code>-dB</code>/<code>--validate</code>
+are accepted for command-line-shape consistency but do not change what
+runs — the oracle (and gold, if linked) suites use their own fixed
+cases.</p>
+<h2 id="raw-output-format">Raw output format</h2>
+<p><code>PolyMult.time[-par]</code> prints one csv row per repetition to stdout, with
+one column per <code>--tune</code> key actually given on that call (a generic list,
+not a fixed set — a new tunable key needs no change here):</p>
+<pre><code>variant,dA,dB,threads[,&lt;tune key&gt;...],build_params,rep,seconds,gflops
+</code></pre>
+<p><code>collect.py</code> (see <code>READ_ME_FIRST.md</code>) turns this into the results csv
+format.</p>
+    </div>
+</body>
+</html>

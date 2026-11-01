@@ -1,0 +1,453 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EXPERIMENTS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="experiments">EXPERIMENTS</h1>
+<p><strong>Never run two timing binaries in the background at the same time bound
+to overlapping <code>taskset</code> cores</strong> — they'll contend with each other and
+corrupt both measurements without any warning.</p>
+<p>The user-facing interface to running an experiment and turning it into a
+workbook: <code>sweep.sh</code>, <code>collect.py</code>, <code>plot.py</code>. Read this before running a
+sweep or building a workbook.</p>
+<h2 id="the-three-tools">The three tools</h2>
+<p><strong><code>sweep.sh</code></strong> — one sweep for one variant, one results csv (one row per
+thread count, or per swept configuration — see "Multi-Axis Sweeps" below).</p>
+<pre><code>sweep.sh --variant-dir DIR --dA N --dB N --threads RANGE --reps N
+         (--out FILE.csv | --name NAME)
+         [--make-var KEY=VALUE ...] [--tune KEY=RANGE ...]
+         [--extra KEY=VALUE ...]
+         [--seq-time SECONDS [--seq-source TEXT] | --record-seq | --renew-seq]
+</code></pre>
+<p>Builds the variant, runs its correctness gate, runs the timed sweep(s),
+writes the csv — every parallel invocation bound (see <code>_gate.sh</code>), no
+unbound <code>.check-par</code>/<code>.time-par</code> possible.</p>
+<ul>
+<li><code>--name</code> writes to <code>&lt;variant-dir&gt;/results/&lt;name&gt;.csv</code>; a sweep's raw data
+  belongs to its own variant directory. <code>--out</code> overrides this. Recommended
+  stem: a dotted date plus a same-day sequence number, e.g.
+  <code>2026.09.14.001_5thr</code> or <code>2026.09.14.002_block_size_sweep</code> — this is a
+  naming convention, not something <code>sweep.sh</code> generates for you.</li>
+<li><code>--make-var KEY=VALUE</code> forwards a compile-time knob to <code>make</code> (e.g.
+  <code>SCHED=dynamic,8</code>, <code>UNROLL=8</code>) — one rebuild per call. Comparing values
+  means calling <code>sweep.sh</code> once per value, each to its own output.</li>
+<li><code>--tune KEY=RANGE</code> forwards a runtime tuning knob (e.g. <code>block_size=64</code>)
+  to the timing binary's own <code>--tune KEY=VALUE</code>, no rebuild needed. A bare
+  single value is forwarded unchanged, exactly as today; a real range
+  (<code>--tune block_size=32:512:2</code>, same syntax as <code>--threads</code>) loops
+  <code>sweep.sh</code> itself, one invocation per value, and becomes a <strong>swept
+  axis</strong> — see "Multi-Axis Sweeps" below. Repeatable — up to 4 total
+  swept axes across <code>--threads</code>/<code>--tune</code> combined.</li>
+<li><code>--extra KEY=VALUE</code> records a constant metadata field in the csv's
+  preamble that isn't one of the built-in flags (e.g. <code>unroll=4</code> for a knob
+  held fixed this call).</li>
+<li><code>--allow-gate-failure</code> times the build even if its correctness gate
+  fails, for a deliberately-incorrect diagnostic run (e.g. a <code>nowait</code> that
+  should race). The gate still runs; its outcome is recorded in the csv's
+  preamble as <code>gate_status=PASSED|FAILED</code>, and the csv lands under
+  <code>&lt;variant-dir&gt;/results/diagnostic/</code> instead of <code>results/</code>, so it can
+  never be mistaken for a trusted measurement. Cannot be combined with
+  <code>--record-seq</code>/<code>--renew-seq</code> — a diagnostic build must never become the
+  trusted sequential baseline.</li>
+<li><code>--seq-time</code>/<code>--record-seq</code>/<code>--renew-seq</code>: see below.</li>
+</ul>
+<p><strong><code>collect.py</code></strong> — called internally by <code>sweep.sh</code>; not normally invoked
+directly. Turns the timing binary's raw per-rep output (possibly several
+<code>--tune</code>-axis invocations, concatenated by <code>sweep.sh</code>) into the results csv:
+preamble of constant parameters, then one row per unique swept
+configuration, with <code>median</code>, <code>mean_wo_outliers</code>, <code>gflops_median</code>,
+<code>gflops_mean_wo_outliers</code> computed from <code>dA</code>/<code>dB</code> alone —
+<code>GFLOPs = 2*(dA+1)*(dB+1)</code>, independent of any sequential baseline. Any rep
+more than 2x slower than the fastest rep is treated as an outlier and
+excluded. Which raw-csv columns are swept (become a grouping key + output
+column) versus constant (become a preamble field) is auto-detected from the
+data itself — a column with only one distinct value is constant, more than
+one is swept — not from a fixed set of named flags, so a new <code>--tune</code> key
+needs no change here.</p>
+<p><strong><code>plot.py</code></strong> — turn one or more results csvs into an <code>.xlsx</code> workbook.
+Chart style is chosen automatically from the csv's own <code>axis_order</code>
+preamble field (see "Multi-Axis Sweeps" below) — CLASSIC (thread-count
+Speedup+Performance) when absent or <code>threads</code>, MULTI-AXIS (%TPP bar
+chart(s) vs. a tuning parameter) otherwise.</p>
+<pre><code>plot.py --csv FILE [--csv FILE ...] --tpp-per-core VALUE
+        [--out WORKBOOK.xlsx | --topic TOPIC] [--label NAME ...]
+        [--tmp VALUE] [--stat median|mean_wo_outliers] [--title TITLE]
+</code></pre>
+<ul>
+<li>Output path auto-derives when <code>--out</code> is omitted: every csv under the
+  same <code>NN-VARIANT</code> directory (e.g. <code>00-GSQ</code>) is a single-variant plot,
+  placed inside that variant's own <code>plots/</code>; csvs spanning more than one
+  variant directory are cross-variant, placed one level up at the common
+  parent's <code>plots/</code>. Flat filename, no per-topic subdirectory:
+  <code>YYYY.MM.DD.NNN.&lt;Topic&gt;.xlsx</code> — <code>NNN</code> is the next unused sequence number
+  for today's date in that directory (starts at <code>001</code> each day). <code>--topic</code>
+  is <strong>required</strong> whenever <code>--out</code> is omitted — auto-deriving it from
+  <code>--title</code> has been retired; <code>--title</code> is now purely the chart's own
+  display title, independent of the output filename.</li>
+<li><code>--tpp-per-core</code> for this machine's E-cores is 35.2 GFLOPs/s (16 Cores
+  × 2.20 GHz × 16 Operations/Cycle = 563.2 GFLOPs total ÷ 16 cores; see
+  <code>reference/Procinfo1.md</code> § 1-2 for the derivation).</li>
+</ul>
+<p>CLASSIC path (unchanged): multiple <code>--csv</code> superpose on Speedup (one line
+per run) and group on Performance (one bar per run per thread count).
+Speedup and Performance render as <strong>one combined chart</strong>: Speedup per run,
+plus an "Ideal speedup" (Speedup(t) = t) line, on the left axis; %TPP bars
+per run, grouped per thread count, on the right ("Thread-normalized
+Performance") axis. %TPP is thread-normalized
+(<code>%TPP(t) = GFLOPs/s(t) / (TPP_per_core * t) * 100</code>). A "100% TPP"
+reference bar is grouped alongside the %TPP bars whenever the tallest bar
+exceeds 67% of TPP; at or below that, the axis is capped just above the
+tallest bar and the reference is dropped, noted in the chart's own x-axis
+title. The thread axis lists every integer from 1 to the largest swept
+thread count, not just the counts actually measured, so the axis reads as
+linear even when the sweep itself is sparse/exponential; unmeasured counts
+are <code>=NA()</code> and draw nothing. <strong>A csv with no <code>seq_time</code> in its preamble is
+refused (<code>SystemExit</code>, not a warning)</strong> — every classic-path workbook needs
+a real sequential baseline behind it (see T(seq) carry-through below).</p>
+<p>MULTI-AXIS path: one %TPP bar chart per facet-panel combination (axis 3 ×
+axis 4, if present), each with axis 1 on the x-axis and axis 2 as the
+bar-cluster color (sorted by its own numeric value, colored from a fixed,
+colorblind-validated palette order — color is tied to the palette's own
+validated adjacency, not re-optimized per dataset). Same 67%-cap/100%
+-reference-line and GFLOPs-value-data-label conventions as the classic
+Performance chart. Only a single <code>--csv</code> is supported in this style for
+now. Always Performance-only, never Speedup (see "Multi-Axis Sweeps").</p>
+<h2 id="tseq-carry-through">T(seq) carry-through</h2>
+<p>The sequential baseline T(seq) starts from each variant's own true
+sequential binary (<code>PolyMult.time</code>, no <code>-DPAR</code>/<code>-fopenmp</code>) run at a given
+problem size — <strong>every variant records its own</strong>, including a <code>*P&lt;n&gt;</code>
+parallel variant: it may restructure its <code>*Q</code> ancestor's loop nest, not
+just annotate it, so its own no-<code>-fopenmp</code> binary is not assumed
+identical to its ancestor's. A compile-time knob like <code>SCHED</code> has no
+effect on this binary at all (an unrecognized <code>#pragma omp</code> is simply
+ignored without <code>-fopenmp</code>), so one measurement covers every later sweep
+of that variant <em>at the same size</em> regardless of schedule/tuning value —
+but <strong><code>dA</code>/<code>dB</code> change the amount of work done, so T(seq) is specific to
+the exact <code>(dA, dB)</code> pair it was measured at.</strong> The sidecar is keyed on
+that pair, not just the variant: <code>&lt;variant-dir&gt;/results/seq_time.json</code>
+holds one entry per recorded <code>(dA, dB)</code> size, e.g.:</p>
+<pre><code class="language-json">{&quot;entries&quot;: {&quot;2000x2000&quot;: {&quot;dA&quot;: 2000, &quot;dB&quot;: 2000,
+                             &quot;seq_time&quot;: 0.0006037915, &quot;seq_time_source&quot;: &quot;...&quot;}}}
+</code></pre>
+<p><strong>Establishing or extending it:</strong> run <code>sweep.sh</code> once per size, with
+<code>--threads 1</code>, no <code>--make-var</code>, and <code>--record-seq</code>:</p>
+<pre><code>sweep.sh --variant-dir 00-GSQ --dA 2000 --dB 2000 \
+    --threads 1 --reps 11 --name seq --record-seq
+</code></pre>
+<p>This adds/updates just this size's entry in
+<code>&lt;variant-dir&gt;/results/seq_time.json</code> (the measured value plus provenance)
+in addition to the normal results csv — <strong>every other recorded size is
+left alone</strong>, so recording a new <code>(dA, dB)</code> never disturbs one already in
+use. <code>--record-seq</code> (like <code>--renew-seq</code> below) requires <code>--threads 1</code> and
+refuses <code>--make-var</code>/<code>--seq-time</code> together with it — it must be the true,
+schedule-independent sequential build.</p>
+<p><strong>When the sequential kernel source itself changes, use <code>--renew-seq</code>
+instead — same requirements, but it wipes every other recorded size
+first, keeping only the one just measured:</strong></p>
+<pre><code>sweep.sh --variant-dir 00-GSQ --dA 2000 --dB 2000 \
+    --threads 1 --reps 11 --name seq --renew-seq
+</code></pre>
+<p>The sequential kernel changes rarely, but when it does, every existing
+entry is simultaneously stale, not just the one being re-recorded — a
+later sweep at another size must not silently reuse a baseline from the
+old kernel. Recording a <em>new</em> problem size, by contrast, is common and
+shouldn't cost every other size its baseline. <code>sweep.sh</code> prints a warning
+naming what got wiped whenever <code>--renew-seq</code> actually removes another
+size's entry. Using plain <code>--record-seq</code> when the kernel changed would
+leave other sizes' entries silently stale; using <code>--renew-seq</code> for a
+merely-new size would cost unnecessary re-recording of sizes still in
+use — pick the one that matches what actually happened.</p>
+<p><strong>Every later sweep at a recorded size picks it up automatically, as the
+minimum of up to three candidates</strong>, none trustworthy alone:</p>
+<ol>
+<li><strong>own</strong> — this variant's own recorded <code>seq_time.json</code> entry.</li>
+<li><strong>base</strong> — for a <code>*P&lt;n&gt;</code> variant only, its <code>*Q</code> ancestor's own
+   recorded <code>seq_time.json</code> entry (e.g. <code>03-BKP2</code>'s ancestor is
+   <code>03-BKQ</code>, derived from the directory name). Not applicable to a <code>*Q</code>
+   variant itself, where base and own are the same thing.</li>
+<li><strong>par@1</strong> — this sweep's own <code>t=1</code> row, when the thread range
+   includes 1.</li>
+</ol>
+<p>Whichever of the three are actually available get compared, and the
+smallest wins; <code>seq_time_source</code> in the csv's preamble names which one
+and its value. An explicit <code>--seq-time</code> on a call always overrides all
+three.</p>
+<p>This makes Speedup an <em>approximation</em>, not a precisely cross-variant
+-fair number: a <code>*P&lt;n&gt;</code> that happens to have a slower or faster own
+sequential binary than its <code>*Q</code> ancestor will show a correspondingly
+skewed Speedup curve relative to a sibling <code>*P&lt;n&gt;</code> — Speedup is only
+meant to judge one variant's own scaling against itself. <strong>Performance
+(%TPP) is the metric for comparing across variants</strong> — it's computed
+from <code>dA</code>/<code>dB</code> alone, independent of any T(seq), so it isn't subject to
+this at all.</p>
+<p><strong>Every <code>*P&lt;n&gt;</code> variant needs its own <code>--record-seq</code> call too</strong> —
+recording only lives in its own directory, at its own risk of the same
+"never assume it matches" caveat above; there is no cross-directory
+recording, only cross-directory <em>reading</em> (candidate 2).</p>
+<p><strong>A sweep at a size with none of the three candidates available gets no
+baseline at all</strong> — never a value borrowed from a different size.
+<code>sweep.sh</code> prints a note saying to <code>--record-seq</code> at that size (in this
+variant or its <code>*Q</code> ancestor); the resulting csv has no <code>seq_time</code>, so
+<code>plot.py</code> will later refuse it until that's done.</p>
+<h2 id="multi-axis-sweeps">Multi-Axis Sweeps</h2>
+<p><code>--threads</code> and <code>--tune</code> are both range-capable (<code>sweep.sh</code>'s <code>--threads
+RANGE</code> syntax: enumeration <code>1,2,4</code>, stride <code>2:16:2</code>, powers of 2 <code>1...16</code>,
+or a bare single value, which is just a length-1 range). Whichever of them
+is given <strong>first on the command line</strong>, among those whose value actually
+expands to more than one value, is <strong>axis 1</strong> (the eventual chart's
+x-axis); the next such flag is <strong>axis 2</strong> (series/cluster color); a 3rd
+and 4th are facet-panel columns/rows. At most 4 axes total — <code>sweep.sh</code>
+errors clearly if more are given. A flag whose value is a single value
+(however given) never counts as an axis at all — it's just forwarded to
+every invocation unchanged, exactly as before this feature existed.</p>
+<p><strong>Where the looping happens:</strong> a <code>--threads</code> range is always handled by
+the timing binary's own internal loop — one invocation covers every
+thread count in the range, regardless of whether <code>--threads</code> is axis 1 or
+a later axis. A <code>--tune</code> range loops in <code>sweep.sh</code> itself, one binary
+invocation per value (no rebuild between them), and every combination's
+raw output is concatenated into one csv before <code>collect.py</code> sees it.
+<code>collect.py</code> auto-detects which raw-csv columns actually varied and groups
+rows accordingly — see its own description above.</p>
+<p><strong>T(seq)/Speedup is only attempted for a plain single-configuration call
+or a classic <code>--threads</code>-only sweep</strong> — i.e. at most one axis, and if
+present it's <code>threads</code>. A second+ swept axis (even if <code>--threads</code> is one
+of them, e.g. <code>--threads 1,2,4 --tune block_size=64,128</code>) skips T(seq)
+entirely and is always Performance-only. This is deliberate, not a
+oversight: with a second axis present, T(seq) would need a baseline <em>per
+combination</em> of the other axis/axes (different tuning configurations
+generally have different sequential-binary timings too), which neither
+<code>sweep.sh</code> nor <code>_seq_time.py</code> compute yet — rather than silently blend
+different configurations' <code>t=1</code> rows into one misleading number, such a
+sweep just doesn't get a Speedup baseline at all. Performance (%TPP) is
+unaffected either way, since it's computed from <code>dA</code>/<code>dB</code> alone.</p>
+<p><strong>Naming convention</strong> (both csv and xlsx; <code>sweep.sh</code> doesn't generate csv
+names for you, but <code>plot.py</code> does generate xlsx names): a dotted date,
+then a zero-padded sequence number, then a descriptive name —
+<code>2026.09.14.001_5thr.csv</code>, <code>2026.09.14.002.BlockSizeSweep.xlsx</code>. The
+sequence number resets each new date and is scoped to one directory.</p>
+<h2 id="directory-layout-this-produces">Directory layout this produces</h2>
+<pre><code>&lt;NN-VARIANT&gt;/results/&lt;name&gt;.csv                    one file per sweep.sh call
+&lt;NN-VARIANT&gt;/results/seq_time.json                 one sidecar per variant
+&lt;NN-VARIANT&gt;/plots/YYYY.MM.DD.NNN.&lt;Topic&gt;.xlsx      single-variant plot
+plots/YYYY.MM.DD.NNN.&lt;Topic&gt;.xlsx                   cross-variant plot (project root)
+</code></pre>
+    </div>
+</body>
+</html>

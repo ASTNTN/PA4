@@ -1,0 +1,7 @@
+variant,OPP2
+dA,1000
+dB,4000
+seq_time,0.000629303
+seq_time_source,min of 1: this sweep's own t=1 median (0.000629303s)
+threads,rep1,rep2,rep3,rep4,rep5,median,mean_wo_outliers,gflops_median,gflops_mean_wo_outliers
+1,0.000638783,0.000626911,0.000631192,0.000629303,0.000626615,0.000629303,0.0006305608,12.728370911945438,12.702981219257525

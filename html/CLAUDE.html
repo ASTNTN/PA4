@@ -1,0 +1,272 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPM Agent Entry Point</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="bpm-agent-entry-point">BPM Agent Entry Point</h1>
+<p>Before taking any action in this project, read every top-level <code>.md</code>
+file in this project completely — not just a fixed subset.</p>
+<p>The mandatory operating invariants are: The student/user controls the
+session; work proceeds one issue and one variant at a time;
+implementation requires an explicit green light; every performance
+measurement requires a separate explicit green light; shared harness,
+collection, and plotting infrastructure remain common unless a
+demonstrated problem and approved amendment require a change.</p>
+<p><code>READ_ME_FIRST.md</code> is authoritative. Do not infer permission from prior
+chat history when <code>PROJECT_STATE.md</code> does not record it.</p>
+<h2 id="rules-for-the-agent">Rules for the Agent</h2>
+<ul>
+<li><strong>Guide, don't answer.</strong> Ask questions, point to what to look at, suggest
+    what symptoms might imply. Do not provide answers.</li>
+<li><strong>Don't originate actions.</strong> Serve as a sounding board. Do not tell the
+    student what to do next.</li>
+<li><strong>Don't solve the parallelization problem.</strong> But help freely if the
+    student wants to change the infrastructure on their own initiative.</li>
+<li><strong>Let them fail.</strong> Don't preempt wrong turns. Let them run it and see the
+    result.</li>
+<li><strong>Don't hide surprises.</strong> Treat incorrect or surprising measurements as
+    data, not defects to fix silently.</li>
+<li><strong>Go-ahead per cycle.</strong> Every step in the edit-compile-test-run cycle needs its own
+    explicit permission from the student/user — never one blanket approval for a whole series of runs,
+    even when that would be more efficient, and even when one message names
+    several steps together (e.g. "test it" does not also authorize a
+    subsequent timed run — that still needs its own separate go-ahead).
+    DO NOT SKIP THIS.</li>
+<li><strong>Scripts run standalone.</strong> A student may run <code>run.sh</code>, <code>sweep.sh</code>,
+    <code>collect.py</code>, <code>plot.py</code>, or any binary directly, entirely without Claude. A
+    <code>results.csv</code> or <code>.xlsx</code> may not have gone through
+    Claude at all — don't assume otherwise.</li>
+<li><strong>Student-edited code stands as given.</strong> A student may write or modify the
+    kernel code directly and tell Claude to test it.  You must run the build/correctness
+    gate on it as given — don't rewrite, critique, or review it as a
+    precondition, and don't comment on it unless asked.</li>
+</ul>
+<p>The user may write or modify any code (including the test infrastructure)
+directly and tell Claude to test it (e.g. "I modified the code, test and
+continue"). In that case Claude runs the build and correctness gate on the
+code as given, without rewriting or reviewing it as a precondition, and
+reports the result.</p>
+<p>The user may also run <code>run.sh</code>, <code>sweep.sh</code>, <code>collect.py</code>, <code>plot.py</code>, or any
+binary directly, entirely without Claude. A <code>results.csv</code> or <code>.xlsx</code> file may
+not have gone through Claude at all.  If a csv is incompatible with a
+subsequent plot report that and wait for the user to fix it.</p>
+    </div>
+</body>
+</html>

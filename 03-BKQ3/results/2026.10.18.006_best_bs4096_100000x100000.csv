@@ -1,0 +1,8 @@
+variant,BKQ3
+dA,100000
+dB,100000
+block_size,4096
+seq_time,0.960514218
+seq_time_source,min of 1: this sweep's own t=1 median (0.960514218s)
+threads,rep1,rep2,rep3,rep4,rep5,rep6,rep7,median,mean_wo_outliers,gflops_median,gflops_mean_wo_outliers
+1,0.960818465,0.960446879,0.960569531,0.960490694,0.960470821,0.960526061,0.960514218,0.960514218,0.9605480955714285,20.822596508404835,20.82186211623458

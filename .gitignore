@@ -1,0 +1,5 @@
+*.o
+CLAUDE.md
+StudentInstructions.md
+**/bin/**
+**/__pycache__/**

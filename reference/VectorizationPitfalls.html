@@ -1,0 +1,342 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vectorization Pitfalls Under OpenMP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="vectorization-pitfalls-under-openmp">Vectorization Pitfalls Under OpenMP</h1>
+<p>A real finding from parallelizing <code>GSQ</code> the simplest possible way: <code>#pragma
+omp parallel for</code> on the outer loop, nothing else changed. It builds,
+passes the gate, and shows <strong>perfect speedup</strong> — and is still running at
+roughly <strong>2% of theoretical peak</strong>, not because of scheduling or
+contention, but because the inner loop silently stopped vectorizing.</p>
+<h2 id="1-the-symptom-perfect-speedup-terrible-performance">1. The symptom: perfect speedup, terrible performance</h2>
+<p>Speedup (relative to the variant's own <code>t=1</code>) scales linearly across
+threads. Performance (%TPP) is flat at every thread count — consistent
+with perfect speedup, but the flat value itself is far below what the
+hardware can do. Perfect speedup only tells you every thread is doing the
+same amount of work per unit time; it says nothing about whether that
+work is efficient. Don't stop at speedup — check %TPP too.</p>
+<h2 id="2-diagnosis-the-inner-loop-de-vectorized">2. Diagnosis: the inner loop de-vectorized</h2>
+<p><code>GSQ</code>'s own sequential kernel vectorizes cleanly with <code>-ffast-math</code>
+(confirmed via <code>-fopt-info-vec-all</code>: <code>loop vectorized using 32 byte
+vectors</code>, and via disassembly: a single <code>vfmadd231ps</code> per 8-wide chunk).
+The naive parallel version's disassembly shows something different. Its
+real work has been split into a separate, compiler-generated function:</p>
+<pre><code>0000000000401840 T kernel_multiply
+00000000004016f0 t kernel_multiply._omp_fn.0
+</code></pre>
+<p>Disassembling <code>kernel_multiply._omp_fn.0</code> finds <strong>only scalar
+instructions</strong> — <code>vfmadd231ss</code> (single-lane), no <code>vpermd</code>/vector
+<code>vfmadd231ps</code> anywhere. The inner loop is running one element at a time.</p>
+<h2 id="3-why-its-not-the-outlining-itself">3. Why: it's not the outlining itself</h2>
+<p><code>#pragma omp parallel for</code> makes GCC "outline" the loop body into a
+separate function, called once per thread through <code>libgomp</code> — a real,
+non-inlinable function-pointer boundary. <code>a</code>, <code>b</code>, <code>c</code>, and the loop
+bounds get captured into a compiler-generated struct and passed in by
+pointer, rather than arriving as ordinary <code>restrict</code>-qualified function
+parameters.</p>
+<p>It's tempting to conclude the outlining itself defeats vectorization —
+but that's too strong a claim, and checking it directly disproves it: an
+otherwise-identical kernel, parallelized the same way, through the exact
+same outlining mechanism, <strong>does</strong> vectorize. The difference turned out
+to be much narrower.</p>
+<h2 id="4-the-actual-cause-accumulating-into-the-array-not-into-a-register">4. The actual cause: accumulating into the array, not into a register</h2>
+<p>Isolated with two minimal, otherwise-identical functions — same
+signature, same <code>#pragma omp parallel for schedule(static, 8)</code>, same
+<code>-ffast-math</code>, only the accumulation differs:</p>
+<pre><code class="language-c">/* (A) local scalar */
+float sum = 0.0f;
+for (int j = jmin; j &lt;= jmax; j++) sum += a[k-j] * b[j];
+c[k] = sum;
+</code></pre>
+<pre><code class="language-c">/* (B) directly into the array */
+for (int j = jmin; j &lt;= jmax; j++) c[k] += a[k-j] * b[j];
+</code></pre>
+<p><code>-fopt-info-vec-all</code> on each:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>inner loop</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(A) local scalar</td>
+<td><code>optimized: loop vectorized using 32 byte vectors</code></td>
+</tr>
+<tr>
+<td>(B) direct array write</td>
+<td><code>missed: not vectorized: complicated access pattern</code></td>
+</tr>
+</tbody>
+</table>
+<p>Same outlining, same captured pointers, same everything else. (A)
+vectorizes; (B) doesn't. Writing to <code>c[k]</code> every iteration, through a
+pointer that arrived via the capture struct, is what defeats the
+vectorizer's dependence analysis — not the struct capture by itself.</p>
+<h2 id="5-why-the-projects-own-shared-code-walked-into-this">5. Why the project's own shared code walked into this</h2>
+<p><code>shared/include/accumulate.h</code> documents one rule with no exception:
+<em>"Use <code>BPM_ACC</code> for every accumulation into the output array."</em> That
+rule exists for a correctness reason unrelated to vectorization — it
+keeps the <code>CHECKING</code> (Kahan-compensated) and production loop structures
+identical, so a passing correctness gate is real evidence about the
+timed build. Expanded for production, <code>BPM_ACC(c, comp, k, term)</code> is
+exactly form (B) above: <code>c[k] += term;</code>.</p>
+<p><code>GSQ</code>'s own shared kernel already follows this rule, like every variant
+is meant to. So the natural, idiom-preserving way to parallelize it —
+add a pragma to the existing, unmodified function — inherits form (B)
+unchanged, and with it, the vectorization loss. Nothing in the
+documented convention warns that this specific, well-justified rule
+becomes a performance trap inside a parallel region. Getting form (A)
+instead requires already knowing to deviate from the documented
+convention — it's not something a correct-by-the-rules first attempt
+would produce.</p>
+<h2 id="6-when-you-actually-need-bpm_accs-array-form">6. When you actually need <code>BPM_ACC</code>'s array form</h2>
+<ul>
+<li><strong>One thread owns the whole output element</strong> (e.g. parallelizing
+  <code>GSQ</code>'s outer <code>k</code> loop, where each <code>k</code>'s full anti-diagonal sum is
+  computed by a single thread): no other thread ever touches <code>c[k]</code>, so
+  nothing needs the array's memory semantics. Accumulate into a local
+  scalar; write <code>c[k]</code> once. This is safe, correct, and — per above —
+  vectorizes.</li>
+<li><strong>Multiple threads can write the same output element</strong> (e.g. <code>OPQ</code>'s
+  outer-product form parallelized over <code>i</code>: for a fixed <code>i</code>, sweeping
+  <code>j</code> writes to <code>c[i+j]</code>, a <em>different</em> anti-diagonal on every step, and
+  two different threads' <code>i</code> values can land on the same <code>c[k]</code>): this
+  needs <code>BPM_ACC</code>'s array form, further wrapped in <code>#pragma omp
+  atomic</code>/<code>critical</code> at the call site to make the read-modify-write
+  race-safe. There's no local-scalar shortcut here — the whole point is
+  that the output location isn't privately owned.</li>
+</ul>
+<h2 id="7-how-to-check-this-yourself">7. How to check this yourself</h2>
+<pre><code>gcc ... -fopt-info-vec-all -c src/PolyMult.c -o /dev/null 2&gt;&amp;1 | grep -i vector
+</code></pre>
+<p>Look for <code>optimized: loop vectorized</code> at your inner loop's line, not
+just "vectorized N loops in function" (that count can come from an
+unrelated setup loop). If it's missing, or says <code>missed: ... complicated
+access pattern</code>, disassemble the actual binary and look for the outlined
+<code>._omp_fn.0</code> symbol — if its body is pure scalar (<code>vfmadd231ss</code>, no
+<code>vpermd</code>/<code>vfmadd231ps</code>), that's the same failure. A flat %TPP alongside
+perfect speedup is the measurement-side symptom that should prompt this
+check in the first place.</p>
+    </div>
+</body>
+</html>

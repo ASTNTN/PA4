@@ -1,0 +1,325 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>READ_ME_FIRST</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="read_me_first">READ_ME_FIRST</h1>
+<h2 id="what-this-project-is">What this project is</h2>
+<p>A polynomial-multiply kernel, <code>c = a * b</code>, timed and correctness-checked under
+a shared harness. <code>00-GSQ</code> is a working sequential reference
+implementation. Students write sequential and parallel variants using the same
+interface (<code>DESIGN.md</code>), run them with the provided scripts, and produce
+speedup/performance charts.</p>
+<h2 id="layout">Layout</h2>
+<ul>
+<li><code>shared/harness/</code>, <code>shared/include/</code> — the harness every variant
+  builds against: argument parsing, timing, the correctness gates,
+  the kernel interface (<code>kernel.h</code>, <code>accumulate.h</code>). See <code>DESIGN.md</code>.</li>
+<li><code>00-GSQ/</code> — the sequential reference kernel and its <code>Makefile</code>/
+  <code>run.sh</code>. Use its layout as the template for a new variant directory.</li>
+<li><code>_gate.sh</code> — shared build/gate/binding logic, sourced by <code>run.sh</code> and
+  <code>sweep.sh</code>. Not meant to be run directly.</li>
+<li><code>sweep.sh</code> — builds a variant, runs its correctness gate, runs a
+  timed thread-count sweep, writes one results csv. Full interface in
+  <code>EXPERIMENTS.md</code>.</li>
+<li><code>collect.py</code> — called by <code>sweep.sh</code>. Turns the timing binary's raw
+  per-rep output into the results csv format. Not normally called
+  directly.</li>
+<li><code>plot.py</code> — turns one or more results csvs into an <code>.xlsx</code> workbook
+  with Speedup and Performance charts. Full interface in
+  <code>EXPERIMENTS.md</code>.</li>
+<li><code>_seq_time.py</code> — sidecar helper for the T(seq) carry-through
+  mechanism, invoked by <code>sweep.sh</code> only. See <code>EXPERIMENTS.md</code>.</li>
+<li><code>VARIANTS.md</code>, <code>TUNING.md</code> — per-variant loop-structure specifications
+  and tuning spaces. Discussion inputs, not authorization — see each
+  file's own operating-status note.</li>
+<li><code>reference/</code> — background material: <code>Procinfo1.md</code>/<code>Procinfo2.md</code>/
+  <code>Procinfo3.md</code> go progressively deeper into this machine's processor
+  architecture and how to read real performance measurements
+  (<code>Procinfo1.md</code> § 1-2 derives the <code>--tpp-per-core</code> value
+  <code>EXPERIMENTS.md</code> uses); <code>PA1-Report-Template.html</code> is a report-writing
+  template from the Mandelbrot assignment, adaptable for this one;
+  <code>VectorizationPitfalls.md</code> is a real, verified case where a
+  perfect-speedup parallel loop silently stopped vectorizing.</li>
+</ul>
+<h2 id="shared-test-harness">Shared Test Harness</h2>
+<p>Every variant links the same harness code and implements
+<code>kernel_multiply</code> (see <code>DESIGN.md</code>). Two binaries per variant matter for
+correctness:</p>
+<ul>
+<li><code>PolyMult.check</code> / <code>PolyMult.check-par</code> — build with <code>-DCHECKING</code>, run
+  the oracle suite (independently-computable cases) and, for every
+  variant except <code>GSQ</code>, a gold-comparison suite against <code>GSQ</code>. <code>GSQ</code>
+  carries the oracle gate alone.</li>
+<li><code>PolyMult.time</code> / <code>PolyMult.time-par</code> — build with <code>-ffast-math</code>, no
+  correctness checking, used only for timing.</li>
+</ul>
+<p>A variant's <code>run.sh</code> builds it and runs its correctness gate, both
+binaries bound (see <code>_gate.sh</code>). Exit 0 means the gate passed.</p>
+<h2 id="workflow">Workflow</h2>
+<ol>
+<li><code>cd &lt;variant-dir&gt; &amp;&amp; ./run.sh</code> — build and gate-check a variant on
+   its own, any time, without timing anything.</li>
+<li><code>./sweep.sh --variant-dir &lt;dir&gt; --dA &lt;int&gt; --dB &lt;int&gt; \
+   --threads &lt;range&gt; --reps &lt;int&gt; --name &lt;name&gt;</code> — build, gate, run a
+   timed sweep, write <code>&lt;variant-dir&gt;/results/&lt;name&gt;.csv</code>.</li>
+<li>Establish a sequential baseline once per <code>(variant, dA, dB)</code>:
+   <code>./sweep.sh --variant-dir &lt;dir&gt; --dA &lt;int&gt; --dB &lt;int&gt; --threads 1 \
+   --reps &lt;int&gt; --name seq --record-seq</code>. Every later sweep at that
+   same variant and size picks it up automatically.</li>
+<li><code>./plot.py --csv results.csv --tpp-per-core &lt;value&gt; --topic &lt;slug&gt;</code>
+   — one or more <code>--csv</code> (each an independent run, optionally
+   <code>--label</code>led), superposed on the Speedup chart, grouped side by
+   side on the Performance chart.</li>
+</ol>
+<p>Run any script with <code>-h</code>/<code>--help</code> for its full flag list. Full detail on
+every flag, the results csv format, and the T(seq) carry-through
+mechanism is in <code>EXPERIMENTS.md</code>.</p>
+<h2 id="the-seven-step-protocol">The Seven-Step Protocol</h2>
+<p>Work proceeds one step at a time, one issue and one variant at a time:</p>
+<ol>
+<li><strong>Design.</strong> Describe what to build or change and why.</li>
+<li><strong>Discuss.</strong> Talk it through before writing code.</li>
+<li><strong>Implement.</strong> Either Claude implements it, requiring the user's explicit
+   go-ahead for each edit-compile-test-run cycle (not once for a whole
+   series) unless the user directly modifies code it (e.g.
+   "I modified the code, test and continue"). In that case, Claude runs
+   the build and correctness gate on the code as given, without
+   rewriting, reviewing, or requiring a separate go-ahead for code it
+   didn't write. Either way: on gate failure, back to step 1.</li>
+<li><strong>(The user) proposes an experiment.</strong> The user decides what to test and
+   why (hypothesis), what varies and over what range, what stays fixed, how
+   many reps, what result would confirm vs. invalidate the hypothesis.</li>
+<li><strong>Run it.</strong> Requires a separate explicit green light from step 3's —
+   every performance measurement is its own approval, not implied by an
+   approved implementation. <code>sweep.sh</code> (directly, or with Claude).</li>
+<li><strong>Gather and plot.</strong> <code>plot.py</code>.</li>
+<li><strong>(The user) Chooses the next direction</strong>, from what step 6 showed.</li>
+</ol>
+<p>Shared harness, collection, and plotting infrastructure remain common
+unless a demonstrated problem requires a change. Claude is not required
+for any of this — <code>run.sh</code>, <code>sweep.sh</code>, <code>collect.py</code>, <code>plot.py</code>, and the
+binaries all work standalone from the student's own terminal.</p>
+<h2 id="mistakes">Mistakes</h2>
+<p>An incorrect or surprising result is not a bug to be quietly fixed —
+it's an input to the next hypothesis.</p>
+    </div>
+</body>
+</html>

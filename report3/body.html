@@ -1,0 +1,476 @@
+<main>
+<h1>PA3 Report: Blocking the Outer Product</h1>
+<p class="meta"><b>Name:</b> [your name] &nbsp;·&nbsp; <b>Date:</b> 2026-10-18 &nbsp;·&nbsp; <b>Machine:</b> eel (i9-13900K, E-cores only, Turbo off)</p>
+
+<h2>Starting Point</h2>
+<p>The kernel is OPQ's <code>c[i+j] += a[i] * b[j]</code> over the whole <code>(i, j)</code> rectangle, now cut into tiles. Part A makes one tile run as fast as possible on one core; Part B spreads the tiles over the 16 E-cores. All headline timing is at <b>100,000 × 100,000</b> (10<sup>10</sup> multiply-adds, 2·10<sup>10</sup> flops). Peak (TPP) is 35.2 GFLOP/s per E-core, 563.2 GFLOP/s for all 16. Sequential runs are pinned to core 16; parallel runs use <code>_gate.sh</code>'s binding (cores 16–31, <code>OMP_PROC_BIND=close</code>, cluster-cyclic places: the first four threads land on four different clusters). Every variant passed the shared gate (42 oracle cases and 14 gold cases, sequential and parallel checking builds) before it was timed, except the one deliberately racy diagnostic in Experiment 11. Timings are medians of 5 or 7 reps from <code>sweep.sh</code>; hardware counters are from <code>perf stat</code> on the <code>cpu_atom</code> (E-core) events, normalized per useful vector FMA.</p>
+<details class="bg"><summary>Background: what an FMA is, and why everything is counted per FMA</summary><div>
+<p>Each <code>(i, j)</code> pair is one multiply and one add. A fused multiply-add (FMA) instruction does both, and the 256-bit version does 8 of them side by side: one vector FMA is 16 flops. An E-core can complete one vector FMA per cycle; at 2.2 GHz that is 35.2 GFLOP/s, the TPP used throughout.</p>
+<p>So "cycles per vector FMA" is a direct yardstick: 1.0 is peak, 1.4 is 71% of peak. Other counters are divided the same way (one 100K × 100K rep is 100,001<sup>2</sup> / 8 ≈ 1.25·10<sup>9</sup> vector FMAs).</p>
+</div></details>
+<details class="bg"><summary>Background: tiles, and the 4-loop structure</summary><div>
+<p>Blocking cuts the <code>(i, j)</code> rectangle into <code>bs × bs</code> tiles and finishes one tile before starting the next: two loops (<code>ii</code>, <code>jj</code>) walk the tiles and two (<code>i</code>, <code>j</code>) walk inside one. Tile <code>(I, J)</code> reads <code>bs</code> values of <code>a</code> and of <code>b</code> and adds into a <code>2·bs − 1</code> long stretch of <code>c</code>, so its working set is fixed by <code>bs</code>, not by the problem size. Tiles at the right and bottom edges are left incomplete (shorter loops), never padded with extra work.</p>
+</div></details>
+
+<div class="scroll"><table>
+<tr><th class="l">Reference points, 100K × 100K, one core</th><th>GFLOP/s</th><th>% TPP</th></tr>
+<tr><td class="l">OPQ (PA2 measurements, not re-run here: 26.5% at 160K, notes.md)</td><td>≈ 9.4</td><td>≈ 27</td></tr>
+<tr><td class="l">BKQ, plain blocking, best block (Experiment 1)</td><td>13.22</td><td>37.6</td></tr>
+<tr><td class="l">BKQ7, final single-core kernel, best block (Experiment 8)</td><td>25.40</td><td>72.2</td></tr>
+</table></div>
+<p>The kernel has to go through the shared <code>BPM_ACC</code> macro for every addition into <code>c</code>: a plain <code>+=</code> in the timed build (compiled with <code>-ffast-math</code>), Kahan-compensated in the checking build. That rules out writing the hot loop with intrinsics, which comes up twice below.</p>
+
+<!-- ============ PART A ============ -->
+
+<h2>Experiment 1: plain blocking (BKQ)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>Does tiling OPQ's two loops, with nothing else changed, change the single-core rate, and how does it depend on the block size?</p>
+<h3>Hypothesis</h3>
+<p>At PA2's small sizes BKQ matches OPQ (~37% TPP): the inner loop, and so its 2 loads and 1 store per vector FMA, is unchanged. At large sizes, where OPQ's rows outgrow L1 and it falls to ~27%, blocking should hold the small-size plateau.</p>
+<h3>Experiment Design</h3>
+<p>Square tiles, 4 loops, edge tiles incomplete, runtime knob <code>--tune block_size</code> (64 when absent). The inner <code>j</code> loop vectorizes 8-wide exactly as OPQ's (<code>vbroadcastss</code> of <code>a[i]</code>, <code>vfmadd213ps</code> with <code>c</code> as a memory operand, one store). Block sweeps: 16–1,024 at 1,000 × 4,000 and 8,000 × 2,000 (5 reps), then 256–4,096 at 20K, 40K, 60K, 80K and 100K square (7 reps).</p>
+<h3>Experiment Run</h3>
+<p><code>03-BKQ/results/2026.10.18.00{1..7}_bs_sweep_*.csv</code>.</p>
+<h3>Analysis</h3>
+<div class="scroll"><table>
+<tr><th>block</th><th>16</th><th>64</th><th>128</th><th>256</th><th>512</th><th>1024</th><th>2048</th><th>4096</th></tr>
+<tr><td class="l">8,000 × 2,000</td><td>7.7%</td><td>25.3%</td><td>35.9%</td><td>37.2%</td><td>37.8%</td><td>36.1%</td><td class="dim">–</td><td class="dim">–</td></tr>
+<tr><td class="l">100K × 100K</td><td class="dim">–</td><td class="dim">–</td><td class="dim">–</td><td>37.2%</td><td>38.0%</td><td>36.4%</td><td>37.2%</td><td>36.4%</td></tr>
+</table></div>
+<ul>
+<li>From 192 up, BKQ sits at 36–38% TPP at every block size and every problem size from 1,000 × 4,000 to 100K × 100K, within 2–4% of OPQ's small-size rate.</li>
+<li>At large sizes that is ~1.4× OPQ's ~27%: blocking keeps the inner loop's data in cache where OPQ's long rows don't.</li>
+<li>Small blocks are much worse than "a little loop overhead": bs = 16 runs at a fifth of OPQ, and the rate climbs roughly in proportion to bs up to ~96. Not explained (each 16-long row is two vector iterations plus loop setup).</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Supported. Blocking by itself fixes the large-size cache loss but not the per-FMA load limit: 2 loads and 1 store per vector FMA (6 µops) hold the kernel at ~37% at any size.</p>
+
+<h2>Experiment 2: unroll-and-jam, R = 8 (BKQ2)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>The limit is loads per FMA. Unroll-and-jam (trick 1 of the PA2 reference report) loads and stores each vector of <code>c</code> once per 8 FMAs instead of once per FMA. How much of that shows up inside a tile?</p>
+<h3>Hypothesis</h3>
+<p>Loads per FMA fall from 2 to 9/8 and BKQ2 rises to ~55–60% TPP. The assembly showed that <code>-ffast-math</code> regroups the 8 products into pairs (4 multiplies + 4 FMAs + 4 adds, 12 FP instructions for 8 FMAs of work), which caps the loop at 8/12 = 67%.</p>
+<details class="bg"><summary>Background: unroll-and-jam on the outer product</summary><div>
+<p>Take 8 rows <code>i0 .. i0+7</code> of a tile together. Row <code>r</code> adds <code>a[i0+r] · b[j]</code> into <code>c[i0+r+j]</code>. Renaming <code>t = r + j</code>, all 8 rows add into the same <code>c[i0+t]</code>, row <code>r</code> using <code>b[t − r]</code>. So one fused loop over <code>t</code> loads <code>c[i0+t]</code> once, does 8 FMAs with 8 values of <code>a</code> held in registers and 8 windows of <code>b</code> one float apart, and stores once: 9 loads and 1 store per 8 FMAs instead of 16 and 8.</p>
+<p>The fused loop only covers the <code>t</code> where every row has its <code>j</code> inside the tile (<code>t = jj+7 .. jend−1</code>). The leftover triangles at each end of each row, the "ragged ends", ran as plain scalar OPQ rows. They matter a lot in Experiments 7 and 8.</p>
+</div></details>
+<h3>Experiment Design</h3>
+<p>BKQ's tiling, R = 8 fixed, 8 values of <code>a</code> hoisted into locals, ragged ends and leftover rows as plain rows. Same large-size block sweeps as Experiment 1 (BKQ re-swept alongside for a direct comparison).</p>
+<h3>Experiment Run</h3>
+<p><code>03-BKQ2/results/2026.10.18.00{3..7}_bs_sweep_*.csv</code>; first small-size sweeps in <code>.001</code>/<code>.002</code>.</p>
+<h3>Analysis</h3>
+<div class="scroll"><table>
+<tr><th>block, 100K</th><th>256</th><th>512</th><th>1024</th><th>2048</th><th>3072</th><th>4096</th></tr>
+<tr><td class="l">BKQ</td><td>37.2%</td><td>38.0%</td><td>36.4%</td><td>37.2%</td><td>37.5%</td><td>36.4%</td></tr>
+<tr><td class="l">BKQ2</td><td>41.2%</td><td>48.6%</td><td>53.4%</td><td>55.7%</td><td>56.5%</td><td>56.8%</td></tr>
+<tr><td class="l">BKQ2 / BKQ</td><td>1.11</td><td>1.28</td><td>1.47</td><td>1.50</td><td>1.51</td><td>1.56</td></tr>
+</table></div>
+<ul>
+<li>BKQ2 reaches 56.8% (20.0 GFLOP/s) at bs = 4,096, 1.56× BKQ, the same at 40K–100K (20K up to 1 GFLOP/s lower).</li>
+<li>It rises with block size all the way to 4,096. A footprint estimate (≈ 12·bs bytes per tile) predicted a drop past bs ≈ 2,700 when a tile outgrows L1; it did not happen.</li>
+<li>Small blocks lose: below bs = 192 BKQ2 is slower than BKQ, because the fused loop covers only bs − 7 of each row.</li>
+</ul>
+<div class="dev"><b>Deviation.</b> The first BKQ2 sweep at 1,000 × 4,000 (≈ 1 ms per rep) was unusable for bs = 128–768: within each block size the 5 reps got steadily faster (bs = 384: 0.710 → 0.542 ms) while another user's rsync was running. That is why all later single-core work is at 20K–100K, where a rep takes about a second; rep spreads there were within ~0.5%.</div>
+<h3>Conclusions</h3>
+<p>Supported: 56.8%, within the predicted range and under the 67% regrouping cap. The best block is not bracketed.</p>
+
+<h2>Experiment 3: keep the chain of 8 FMAs (BKQ3)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>Does removing the 12-instruction regrouping (trick 2) lift the kernel toward the 67% cap and past it?</p>
+<h3>Hypothesis</h3>
+<p>With <code>__attribute__((optimize("no-associative-math")))</code> on the kernel only, the loop becomes one load of <code>b</code>, 8 chained FMAs and one store. BKQ3 beats BKQ2 and levels off at 60–67%, where the chain of 8 dependent FMAs (6-cycle latency) becomes the next limit.</p>
+<h3>Experiment Design</h3>
+<p>BKQ2 plus the attribute; the rest of the build keeps <code>-ffast-math</code>. Same block sweeps. The hot loop was checked in the disassembly:</p>
+<pre>vmovups     (%r14,%rax,1),%ymm0         ; b window, row 0
+vfmadd213ps (%rdx,%rax,1),%ymm15,%ymm0  ; * a0, + c
+vfmadd231ps (%r11,%rax,1),%ymm14,%ymm0  ; + a1 * b window, row 1
+...                                      ; 5 more
+vfmadd231ps (%rbx,%rax,1),%ymm8,%ymm0   ; + a7 * b window, row 7
+vmovups     %ymm0,(%rdx,%rax,1)         ; store c</pre>
+<h3>Experiment Run</h3>
+<p><code>03-BKQ3/results/2026.10.18.00{1..5}_bs_sweep_*.csv</code>. Every rep within 0.3% of its median.</p>
+<h3>Analysis</h3>
+<p>BKQ3 is 4–6% faster than BKQ2 at every block size and problem size; best 59.1% (20.8 GFLOP/s) at 3,072–4,096. That is far less than the ~16% this step gave in the PA2 reference report, and BKQ2 was already well under its cap, so regrouping was not the main limit.</p>
+<h3>Follow-up: what holds BKQ3 at 59%?</h3>
+<p>Four counter groups, each small enough to be counted 100% of the time, at 100K, bs = 3,072:</p>
+<div class="scroll"><table>
+<tr><th class="l">BKQ3, per vector FMA</th><th>value</th></tr>
+<tr><td class="l">cycles (1.0 = TPP)</td><td>1.687</td></tr>
+<tr><td class="l">load µops</td><td>2.303 (9 loads per 8 FMAs, 2 µops each)</td></tr>
+<tr><td class="l">split loads</td><td>0.438 (19% of load µops)</td></tr>
+<tr><td class="l">L1 misses</td><td>0.10% of loads</td></tr>
+<tr><td class="l">load buffer full</td><td>28.4% of cycles</td></tr>
+<tr><td class="l">memory scheduler full / FP scheduler full</td><td>59.3% / 0.01% of slots</td></tr>
+</table></div>
+<details class="bg"><summary>Background: split loads</summary><div>
+<p>Memory moves in 64-byte cache lines. A 32-byte load that starts in the last 31 bytes of a line straddles two lines and costs the load port extra time. The 8 rows read <code>b</code> windows starting one float apart, so in any one copy of <code>b</code> most of them can't start on an aligned address, and some cross a line.</p>
+</div></details>
+<h3>Conclusions</h3>
+<p>Partly supported: the chain helps by ~5%, but the next limit is not latency (the FP scheduler is never full). BKQ3 is load-side bound: the load buffer is full 28% of cycles and one load µop in five is a split. That points to aligned copies of <code>b</code> (trick 4) rather than interleaved accumulators.</p>
+
+<h2>Experiment 4: four aligned, shifted copies of b (BKQ4)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>Does reading <code>b</code> from aligned copies remove the split loads, and what does that buy?</p>
+<h3>Hypothesis</h3>
+<p>Split loads of <code>b</code> fall to near zero (only the unaligned loads of <code>c</code>, 1 per 8 FMAs, may still split) and BKQ4 rises above 59%. The copies add footprint, so the best block may move down.</p>
+<h3>Experiment Design</h3>
+<p>Once per call, inside the timed kernel, build 4 copies of <code>b</code> on 64-byte-aligned bases, copy <code>s</code> shifted right by <code>s</code> floats (<code>bc[s][x+s] = b[x]</code>). For each tile, row <code>r</code> reads from the copy that puts all its loads on 16-byte boundaries, which never cross a line. Only the fused loop uses the copies. Same block sweeps.</p>
+<h3>Experiment Run</h3>
+<p><code>03-BKQ4/results/2026.10.18.00{1..5}_bs_sweep_*.csv</code>, then the same four counter groups at 100K/3,072, 80K/3,072 and 100K/1,536.</p>
+<h3>Analysis</h3>
+<div class="scroll"><table>
+<tr><th>block</th><th>1024</th><th>1536</th><th>2048</th><th>3072</th><th>4096</th></tr>
+<tr><td class="l">BKQ4 at 40K (BKQ4 / BKQ3)</td><td>58.3% (1.05)</td><td>59.1% (1.04)</td><td>59.9% (1.03)</td><td>61.6% (1.04)</td><td>62.8% (1.06)</td></tr>
+<tr><td class="l">BKQ4 at 100K (BKQ4 / BKQ3)</td><td>58.9% (1.06)</td><td>60.3% (1.06)</td><td>53.8% (0.92)</td><td>55.3% (0.94)</td><td>55.9% (0.95)</td></tr>
+</table></div>
+<div class="scroll"><table>
+<tr><th class="l">per vector FMA</th><th>BKQ3 100K/3072</th><th>BKQ4 100K/3072</th><th>BKQ4 80K/3072</th><th>BKQ4 100K/1536</th></tr>
+<tr><td class="l">cycles</td><td>1.687</td><td>1.806</td><td>1.627</td><td>1.654</td></tr>
+<tr><td class="l">split loads</td><td>0.438</td><td>0.064</td><td>0.064</td><td>0.065</td></tr>
+<tr><td class="l">L1 misses, % of loads</td><td>0.10%</td><td>29.9%</td><td>9.6%</td><td>9.3%</td></tr>
+<tr><td class="l">load buffer full, % of cycles</td><td>28.4%</td><td>23.8%</td><td>15.9%</td><td>12.9%</td></tr>
+<tr><td class="l">memory / FP scheduler full, % of slots</td><td>59.3 / 0.0</td><td>61.5 / 1.0</td><td>29.4 / 28.8</td><td>23.9 / 30.4</td></tr>
+</table></div>
+<ul>
+<li>The copies removed 85% of the split loads at every configuration (0.438 → 0.064).</li>
+<li>At 20K–80K BKQ4 is 2–10% faster than BKQ3; best 62.8% (22.1 GFLOP/s) at 40K, bs = 4,096.</li>
+<li>At 100K with bs ≥ 2,048 it is 5–8% <i>slower</i> than BKQ3, with tight reps. The counters line up with it: 30% of loads miss L1 at 100K/3,072 against 10% at 80K/3,072 with the same block.</li>
+<li>L1 misses appeared at all (0.1% → ~10%) once the copies were added, and with the splits gone the FP scheduler is now full ~30% of slots: the FMA chain shows up as a limit.</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Supported for the splits, but the copies brought L1 misses, and something about 100K with large blocks triples them. The copies were placed back to back, <code>dB + 4</code> floats apart rounded to a line, so where they sit relative to each other changes with <code>dB</code>.</p>
+
+<h2>Experiment 5: where the copies sit (BKQ4, copy spacing)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>Are the extra misses at 100K a capacity problem (the tile no longer fits) or a placement problem (the copies collide in the same L1 sets)?</p>
+<h3>Hypothesis</h3>
+<p>Placement. Moving the copies apart with padding brings some spacings back to ~61–62% TPP and leaves others near 55%. If the misses were capacity misses, padding wouldn't change them.</p>
+<details class="bg"><summary>Background: L1 sets, and why 4,096 bytes</summary><div>
+<p>The E-core's L1 data cache is 32 KB, 8-way, 64 sets of 64-byte lines (read from <code>/sys/devices/system/cpu/cpu16/cache/index0</code>; Procinfo1's 48 KB appears to be the P-core figure). An address's set is fixed by its bits 6–11, so two addresses 4,096 bytes apart always land in the same set. Each set holds at most 8 lines; streams that keep landing in the same sets evict each other although the cache as a whole has room. Separately, a load can be delayed if its address matches an older pending store in its low 12 bits ("4K aliasing").</p>
+</div></details>
+<h3>Experiment Design</h3>
+<p>Runtime knob <code>--tune copy_pad=N</code>: N floats (rounded up to 16) between consecutive copies; only addresses change. 64 pads one line apart cover every spacing mod 4,096 bytes. Swept at 100K, 80K and 40K, bs = 3,072, 5 reps; one perf run per pad at 0, 16, 336 and 864 (100K).</p>
+<h3>Experiment Run</h3>
+<p><code>03-BKQ4/results/2026.10.18.00{6,7,8}_copy_pad_sweep_*.csv</code>. Reps within 2%.</p>
+<h3>Analysis</h3>
+@@C_SPACING@@
+<ul>
+<li>The rate depends on the copy spacing mod 4,096 alone: at every spacing the three sizes agree within ~0.3 points. Most spacings give 61–62%; the default at 100K (2,752) happens to be a bad one, which is all the 100K drop of Experiment 4 was.</li>
+<li>Bad spacings sit just next to, not at, multiples of 4,096 and of 2,048 and 4,096/3. Read off the table: a spacing <code>S</code> is bad when <code>S</code>, <code>2S</code> or <code>3S</code> mod 4,096 (the distances between pairs of copies) lands 64–192 bytes from a multiple of 4,096 without being one. The worst spacings cost 28% (45.6% vs 63.1%).</li>
+<li>Exactly 0 mod 4,096 is the best spacing at every size: 63.1% (22.2 GFLOP/s).</li>
+<li><code>ld_blocks.address_alias</code> equals the L1-miss count within 2–10% at all four profiled pads, and both vary 8× with padding. From these counters I can't tell L1 set conflicts from 4K aliasing against the stores to <code>c</code>.</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Supported: the misses are a placement effect, not capacity. From here on (all BKP variants and BKQ5–7) the copy spacing is rounded up to a multiple of 4,096 bytes. The mechanism stays open.</p>
+
+<h2>Experiment 6: unrolling the fused loop (BKQ5)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>Once the aligned copies removed the split loads, BKQ4's profile showed the FP scheduler full ~30% of slots. Each output vector is a chain of 8 dependent FMAs (≈ 48 cycles). Does putting more independent chains next to each other help?</p>
+<h3>Hypothesis</h3>
+<p><code>#pragma GCC unroll 4</code> on the fused loop gives 4 independent chains per pass, the FP scheduler share falls, and the rate rises above ~63%. Interleaving the chains instruction by instruction would need intrinsics, which <code>BPM_ACC</code> rules out.</p>
+<h3>Experiment Design</h3>
+<p>BKQ4 with the 4,096-byte spacing plus the pragma. In the disassembly the unroll works, but the 4 chains are emitted one after another, not interleaved. GCC's pre-allocation scheduler (<code>optimize("schedule-insns")</code>, tried on a scratch copy) interleaved two chains at a time but added a <code>vmovaps</code> register copy for nearly every FMA, so it was not used. Quick check: 100K, core 16, 3 reps, twice; control = the same source without the pragma.</p>
+<h3>Analysis</h3>
+<div class="scroll"><table>
+<tr><th>block</th><th>BKQ5 (unroll 4)</th><th>control (no pragma)</th><th>BKP4 kernel, 1 thread</th></tr>
+<tr><td class="l">1024</td><td>20.71</td><td>20.74</td><td>20.72</td></tr>
+<tr><td class="l">2048</td><td>18.17</td><td class="dim">–</td><td>21.12</td></tr>
+<tr><td class="l">3072</td><td>17.37</td><td>22.20</td><td>22.25</td></tr>
+</table></div>
+<p>Neutral at 1,024 and 14–22% slower at larger blocks; the two runs matched within 0.1%. The control matches the unchanged kernel, so the loss comes from the unroll itself. Not profiled, not explained.</p>
+<h3>Conclusions</h3>
+<p>Refuted, and set aside: plain-C unrolling doesn't interleave the chains, and costs speed at large blocks.</p>
+
+<h2>Experiment 7: rectangular tiles (BKQ6)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>BKQ4 still missed L1 on ~10% of loads even at a good placement. A tile that is tall in <code>i</code> and narrow in <code>j</code> touches a narrower window of the copies of <code>b</code>. Does any width below the square tile do better?</p>
+<h3>Hypothesis</h3>
+<p>With the height fixed, the rate first rises with width (the scalar ragged ends are 56 of 8w products per group of 8 rows) and, if the copy window's L1 misses matter, peaks below the square tile.</p>
+<h3>Experiment Design</h3>
+<p>New knob <code>block_width</code> (default = <code>block_size</code>); everything else is the BKQ4 kernel with 4,096-byte spacing. Widths 1 to n at heights n = 3,072 and 1,024, 100K, 3 reps.</p>
+<div class="dev"><b>Deviation.</b> The shared gate tune (<code>BPM_GATE_TUNE</code> in <code>shared/include/kernel.h</code>) has no <code>block_width</code> entry, so the gate only runs square 64 × 64 tiles. The header says to add every new key, but it is shared infrastructure and was not changed. Instead, scratch checking builds with <code>block_width</code> = 1, 5, 8, 24, 40, 64 added to the gate tune were run; all passed. The same was done for BKQ7.</div>
+<h3>Experiment Run</h3>
+<p><code>03-BKQ6/results/2026.10.18.00{2,3}_width_bs*_100000x100000.csv</code>. Reps within 0.3% except one slow rep at w = 1.</p>
+<h3>Analysis</h3>
+@@C_WIDTH@@
+<ul>
+<li>The rate rises with width all the way to the square tile; no narrower tile beats it. Height makes no difference at all: at every width, heights 1,024 and 3,072 agree within 0.4%.</li>
+<li>A cost model fits the points from w = 32 up within ~4%: time per group of 8 rows = x · (vector iterations) + y · (scalar products: 56 ragged-end products plus 8 per leftover fused-loop iteration) + z. It puts one scalar product at ~0.25 of an 8-FMA vector iteration, about 16× the cost per flop, and z ≈ 0. At w = 64, a group does 64 scalar products against 56 vector FMAs.</li>
+<li>w = 4 is slower than w = 2 (0.79 vs 0.97 GFLOP/s); not explained.</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Refuted: narrow tiles don't help. The narrow-width loss is the fixed scalar edge work of each row group, and by the model it is still ~10% of the time of a square 1,024 tile. That made it the next target.</p>
+
+<h2>Experiment 8: doing the edges in the vector loop (BKQ7)<span class="axis-tag">sequential</span></h2>
+<h3>Question</h3>
+<p>Can every product of a full row group go through the vectorized fused loop, and what does that buy?</p>
+<h3>Hypothesis</h3>
+<p>Up to ~10% at bs = 1,024 (the model's scalar share), most of the narrow-tile penalty gone, at the cost of up to 2 extra vector iterations of zero products per group.</p>
+<h3>Experiment Design</h3>
+<p>The copies of <code>b</code> become one zero-padded segment per tile column: in copy <code>s</code>, segment <code>J</code> holds the tile's <code>w</code> values of <code>b</code> after 7 zeros, then zeros. Row <code>r</code> reads through <code>p[r] = segment + s + 7 − r</code>, so <code>p[r][u] = b[jj + u − r]</code> inside the tile and <b>0 outside it</b>. The fused loop then runs over the whole trapezoid of the group (<code>u = 0 .. w+6</code>), rounded up to a multiple of 8 so the vector loop has no remainder. Where a row has no <code>b</code> in the tile it adds <code>a · 0</code>, which leaves <code>c</code> unchanged for finite inputs. Every segment starts on a 64-byte boundary, so the copy for row <code>r</code> is simply <code>(r + 1) mod 4</code>. Only the leftover rows of the bottom tile row (height not a multiple of 8) stay scalar. The hot loop is unchanged: one load of <code>b</code>, 8 chained FMAs, one store.</p>
+<h3>Experiment Run</h3>
+<p>Block sweep 256–4,096 at 100K, 7 reps (<code>03-BKQ7/results/2026.10.18.002_bs_sweep_100000x100000.csv</code>); then every single-core variant re-timed at its best block (<code>*_best_bs*_100000x100000.csv</code> in each directory). Reps within 0.2%.</p>
+<h3>Analysis</h3>
+@@C_SINGLE@@
+<div class="scroll"><table>
+<tr><th class="l">each variant at its best block, 100K, fresh runs</th><th>GFLOP/s</th><th>% TPP</th></tr>
+<tr><td class="l">BKQ (3,072)</td><td>13.22</td><td>37.6</td></tr>
+<tr><td class="l">BKQ2 (4,096)</td><td>19.99</td><td>56.8</td></tr>
+<tr><td class="l">BKQ3 (4,096)</td><td>20.82</td><td>59.1</td></tr>
+<tr><td class="l">BKQ4 (1,536; dB-dependent spacing)</td><td>21.24</td><td>60.3</td></tr>
+<tr><td class="l">BKQ6 (3,072; BKQ4 with 4,096-byte spacing)</td><td>22.23</td><td>63.2</td></tr>
+<tr><td class="l"><b>BKQ7 (768)</b></td><td><b>25.40</b></td><td><b>72.2</b></td></tr>
+</table></div>
+<ul>
+<li>BKQ7 is nearly flat across block sizes: 70.3–72.1% from 256 to 4,096, a 2.6% range; 768 and 1,024 tie (25.39 / 25.38). Even the untuned default block of 64 runs at 21.5 GFLOP/s, against 7.8 for the BKQ4 kernel (with 4,096-byte spacing) at 64.</li>
+<li>It beats BKQ4 at every block size, by 56% at 256 and 22% at 1,024. On narrow tiles the gain is larger still (3,072 × 64: 8.2 → 22.0 GFLOP/s).</li>
+<li>The 22% at 1,024 is about twice the model's estimate. Either scalar edge work costs more than the model allows, or BKQ7 gains something else as well (not identified).</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Supported, and more than predicted: 72.2% of TPP on one core, and the block size no longer matters for single-core speed, which leaves it free to be chosen for the parallel version.</p>
+
+<!-- ============ PART B ============ -->
+
+<h2>Experiment 9: tile rows with an array reduction (BKP1)<span class="axis-tag">parallel</span></h2>
+<h3>Question</h3>
+<p>How far does the simplest race-free split go: whole tile rows dealt out statically, each thread adding into its own copy of <code>c</code>?</p>
+<h3>Hypothesis</h3>
+<p>Near-linear, limited by load imbalance. At 100K there are 98 / 66 / 33 tile rows for bs = 1,024 / 1,536 / 3,072; at 16 threads the busiest thread has 7 / 5 / 3 rows against an average of 6.1 / 4.1 / 2.1, capping speedup at ~14.0× / ~13.2× / ~11×.</p>
+<details class="bg"><summary>Background: array reductions</summary><div>
+<p><code>reduction(+:c[:n])</code> gives each thread a private, zeroed copy of all of <code>c</code>; threads add into their own copy, and OpenMP sums the copies into <code>c</code> at the end. No two threads ever write the same memory, so any split of the work is race-free, at the cost of zeroing and merging t copies (here 800 KB each).</p>
+</div></details>
+<h3>Experiment Design</h3>
+<p>BKQ4 with 4,096-byte spacing; <code>#pragma omp parallel for schedule(static) reduction(+:c[:n])</code> on the <code>ii</code> loop (the checking build reduces the Kahan array <code>comp</code> the same way). Copies of <code>b</code> built before the parallel region and shared. Threads 1–16 at bs = 1,024, 1,536, 3,072, 5 reps.</p>
+<h3>Experiment Run</h3>
+<p><code>03-BKP1/results/2026.10.18.00{2,3,4}_threads_bs*_100000x100000.csv</code>.</p>
+<h3>Analysis</h3>
+<div class="scroll"><table>
+<tr><th>t</th><th>bs 1024: GF/s, speedup / cap</th><th>bs 1536</th><th>bs 3072</th></tr>
+<tr><td>1</td><td>20.8, 1.00 / 1.0</td><td>21.0, 1.00 / 1.0</td><td>22.3, 1.00 / 1.0</td></tr>
+<tr><td>8</td><td>155.6, 7.49 / 7.5</td><td>148.8, 7.10 / 7.2</td><td>142.2, 6.38 / 6.5</td></tr>
+<tr><td>12</td><td>222.8, 10.72 / 10.9</td><td>212.0, 10.11 / 10.9</td><td>219.8, 9.86 / 10.9</td></tr>
+<tr><td>16</td><td><b>283.1, 13.62 / 14.0</b></td><td>248.5, 11.85 / 13.0</td><td>205.2, 9.20 / 10.9</td></tr>
+</table></div>
+<ul>
+<li>The speedups follow the imbalance caps' staircase (bs = 3,072 is flat from 11 to 16 threads, exactly where the busiest thread's row count doesn't change), at 84–100% of the cap.</li>
+<li>Best: 283.1 GFLOP/s at bs = 1,024, 13.6×, 50.3% of 16-core TPP. Smaller blocks win from 4 threads up although bs = 3,072 is fastest on one core.</li>
+<li>No per-cluster ceiling of the kind the PA2 outer-loop reduction showed.</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Supported: the static split of whole rows explains the shape and most of the loss. A further 2–16% at high thread counts, more for larger blocks, is unexplained here.</p>
+
+<h2>Experiment 10: one tile at a time, collapse(2) (BKP2)<span class="axis-tag">parallel</span></h2>
+<h3>Question</h3>
+<p>Making the unit of work a single tile removes the imbalance. Does every block size then scale linearly?</p>
+<h3>Hypothesis</h3>
+<p>With 9,604 / 4,356 / 1,089 tiles, imbalance is negligible and the staircase disappears. bs = 3,072, fastest on one core, becomes the best at 16 threads (~330 GFLOP/s).</p>
+<h3>Experiment Design</h3>
+<p>BKP1 plus <code>collapse(2)</code> over <code>ii</code> and <code>jj</code> (<code>iend</code> moved inside so the loops are perfectly nested). Same sweeps.</p>
+<h3>Experiment Run</h3>
+<p><code>03-BKP2/results/2026.10.18.00{2,3,4}_threads_bs*_100000x100000.csv</code>. Reps within 1–3.6%.</p>
+<h3>Analysis</h3>
+@@C_BKP2@@
+<ul>
+<li>The staircase is gone; best 314.3 GFLOP/s at bs = 1,024 (15.1×, 55.8%), +11% over BKP1; +31% for bs = 3,072.</li>
+<li>bs = 3,072 did not become the best; it is the slowest at 16 threads (268.6). Its per-thread rate falls steadily from ~62% to ~48% of TPP as threads are added, while bs = 1,024 levels off at 55–56% from 6 threads. Imbalance can't explain it (at most one extra tile per thread).</li>
+</ul>
+<h3>Follow-up: is it the cluster's shared L2?</h3>
+<p>Three counter groups at bs = 1,024 and 3,072, 4 threads (one per cluster) and 16 (four per cluster), summed over threads, per vector FMA:</p>
+<div class="scroll"><table>
+<tr><th class="l"></th><th>1024, t4</th><th>1024, t16</th><th>3072, t4</th><th>3072, t16</th></tr>
+<tr><td class="l">cycles</td><td>1.702</td><td>1.822</td><td>1.596</td><td>2.064</td></tr>
+<tr><td class="l">L1 misses, % of loads</td><td>0.44%</td><td>0.76%</td><td>7.4%</td><td>14.3%</td></tr>
+<tr><td class="l">load stall cycles waiting on L2 hits</td><td>0.008</td><td>0.014</td><td>0.136</td><td>0.551</td></tr>
+<tr><td class="l">stall cycles per L2 request</td><td>0.40</td><td>0.59</td><td>0.46</td><td>1.76</td></tr>
+<tr><td class="l">memory / FP scheduler full, % of slots</td><td>13.6 / 37.0</td><td>12.6 / 34.1</td><td>20.9 / 35.6</td><td>38.2 / 18.5</td></tr>
+</table></div>
+<p>For bs = 3,072, stalls on L2 hits account for ~88% of the extra 0.47 cycles per FMA at 16 threads: each L2 access gets ~4× slower when four threads share a cluster's L2, and L1 misses per FMA double. bs = 1,024 hardly misses L1, so the shared L2 barely touches it. (Counted 74–87% of the time; groups of 7–8 events were multiplexed.)</p>
+<h3>Conclusions</h3>
+<p>Partly supported: collapse removes the imbalance, but with four threads per cluster large tiles become L2-bound, which makes the smallest block tested the best. Why L1 misses per FMA double with more threads is not explained.</p>
+
+<h2>Experiment 11: the checkerboard, and which tiles really race (BKP3)<span class="axis-tag">parallel</span><span class="axis-tag">diagnostic</span></h2>
+<h3>Question</h3>
+<p>PA3.md's second approach drops the reduction: "a tile has a race only with its immediate four neighbors", so a checkerboard of tiles, run one colour at a time, should be race-free. Is it, for this tiling, and what does dropping the private copies buy?</p>
+<h3>Hypothesis</h3>
+<p>Checked first by brute force (bs = 4, 5 × 5 tiles): tile <code>(I, J)</code> writes <code>c[(I+J)·bs .. (I+J+2)·bs − 2]</code>, so two tiles overlap exactly when their <code>I + J</code> differ by 0 or 1. All tiles on the same anti-diagonal write the same range of <code>c</code>, and they have the same checkerboard colour, so the literal checkerboard races (30 same-colour overlapping pairs in the 5 × 5 example). The parallel checking build should fail; the sequential one should pass.</p>
+@@D_OVERLAP@@
+<p>That does not match PA3.md's "four neighbors" statement for this tiling (perhaps the lecture assumed a different index space; not resolved). It was built anyway, as a diagnostic, to see the race and its cost.</p>
+<h3>Experiment Design</h3>
+<p>BKP2 without the reduction: two phases (colour 0, then 1), each a <code>parallel for collapse(2)</code> over the tile grid that skips the other colour; the implicit barrier separates the phases; threads add straight into the shared <code>c</code>. Timed with <code>sweep.sh --allow-gate-failure</code> (results under <code>results/diagnostic/</code>).</p>
+<h3>Experiment Run</h3>
+<p>Gate, twice: sequential build passed; parallel build failed 11–12 of 42 oracle and 4 of 14 gold cases, every failing case with several tile rows (e.g. 20K × 20K random: ~31,000 of 40,001 outputs wrong, worst error 3–4·10<sup>4</sup> × the tolerance).</p>
+<p>The first timing run was half of BKP2 <i>already at one thread</i>, where nothing can race (10.7 vs 20.8 GFLOP/s at bs = 1,024). The non-OpenMP build of the same source ran at full speed. <code>-fopt-info-vec</code> reported the fused loop "versioned for vectorization because of possible aliasing", and <code>perf annotate</code> showed a store of <code>c</code> after every FMA, 8 per 8 FMAs instead of one.</p>
+<details class="bg"><summary>Background: why OpenMP lost the restrict guarantee</summary><div>
+<p>GCC compiles the body of a <code>parallel for</code> into a separate ("outlined") function and passes the shared variables to it through a structure. Inside that function <code>c</code> is a plain pointer: the <code>restrict</code> on <code>kernel_multiply</code>'s parameter doesn't come along. The compiler must then assume a store to <code>c</code> could change the <code>b</code> values the next FMA reads, so it can't keep <code>c[i0+t]</code> in a register across the 8 rows. In BKP2 each thread's private reduction copy is a local array, provably separate from <code>b</code>, so the problem never showed.</p>
+</div></details>
+<p>Fix: the body of one tile moved into <code>bkq_tile</code>, a <code>noinline</code> function whose pointer parameters are all <code>restrict</code>-qualified. One store per 8 FMAs again, no aliasing versioning, 1-thread speed back to 20.7 GFLOP/s. The diagnostic timing was re-run on the fixed code (bs = 1,024 and 3,072, 5 reps; <code>03-BKP3/results/diagnostic/2026.10.18.00{3,4}_*</code>).</p>
+<h3>Analysis</h3>
+<div class="scroll"><table>
+<tr><th>t</th><th>BKP3 bs 1024 (BKP2), ratio</th><th>BKP3 bs 3072 (BKP2), ratio</th></tr>
+<tr><td>1</td><td>20.7 (20.8), 1.00</td><td>22.3 (22.3), 1.00</td></tr>
+<tr><td>3</td><td>43.2 (61.6), 0.70</td><td>65.4 (65.5), 1.00</td></tr>
+<tr><td>5</td><td>102.7 (103.2), 1.00</td><td>107.8 (107.7), 1.00</td></tr>
+<tr><td>8</td><td>133.5 (156.1), 0.86</td><td>134.4 (162.3), 0.83</td></tr>
+<tr><td>16</td><td>222.2 (314.3), 0.71</td><td>229.1 (268.6), 0.85</td></tr>
+</table></div>
+<p>(Results numerically wrong; timing only.) BKP3 equals BKP2 at some thread counts and is 7–33% slower at others, slower at every count from 6 up, with rep spreads up to 12.5% (BKP2: ≤ 3.6%). Which thread counts lose is not explained; one reading (not measured) is that the static split decides whether same-diagonal tiles, which write the same cache lines of <code>c</code>, happen to run at the same time.</p>
+<h3>Conclusions</h3>
+<p>Refuted twice over: the literal checkerboard races for this tiling, and even ignoring correctness it is slower than the reduction once concurrently running tiles share ranges of <code>c</code>. The useful results are the overlap rule, which gives a race-free schedule directly, and the <code>restrict</code> fix, which any version without a reduction needs.</p>
+
+<h2>Experiment 12: diagonal parity, race-free without a reduction (BKP4)<span class="axis-tag">parallel</span></h2>
+<h3>Question</h3>
+<p>Tiles on diagonals <code>d</code> and <code>d + 2</code> never write the same element. Running whole diagonals of one parity at a time is race-free with no private copies. Is it faster than the reduction?</p>
+<h3>Hypothesis</h3>
+<p>It passes the gate, matches BKP2 at one thread and matches or beats it at 16, since it skips zeroing and merging the private copies. Load imbalance should be small: a greedy simulation of dynamic scheduling in diagonal order (unit tile cost, edges ignored) gives 99.5% / 99.0% / 98.6% efficiency at 16 threads for bs = 1,024 / 1,536 / 3,072.</p>
+@@D_PARITY@@
+<h3>Experiment Design</h3>
+<p>BKP3's restrict-qualified <code>bkq_tile</code>, and two phases: <code>#pragma omp parallel for schedule(dynamic, 1)</code> over the even diagonals, then the odd ones. One iteration is one whole diagonal, run in order by one thread, so no two threads ever hold tiles of the same diagonal; the barrier between phases keeps neighbouring diagonals apart. Same sweeps as BKP2.</p>
+<h3>Experiment Run</h3>
+<p>Gate passed (three times). <code>03-BKP4/results/2026.10.18.00{2,3,4}_threads_bs*_100000x100000.csv</code>.</p>
+<h3>Analysis</h3>
+<div class="scroll"><table>
+<tr><th>t</th><th>bs 1024 (BKP2), ratio</th><th>bs 1536 (BKP2), ratio</th><th>bs 3072 (BKP2), ratio</th></tr>
+<tr><td>1</td><td>20.7 (20.8) 1.00</td><td>21.0 (20.9) 1.00</td><td>22.3 (22.3) 1.00</td></tr>
+<tr><td>8</td><td>164.6 (156.1) 1.05</td><td>164.7 (155.0) 1.06</td><td>174.1 (162.3) 1.07</td></tr>
+<tr><td>12</td><td>246.7 (232.0) 1.06</td><td>238.5 (229.3) 1.04</td><td>224.3 (231.3) 0.97</td></tr>
+<tr><td>16</td><td><b>327.1</b> (314.3) 1.04</td><td>318.2 (298.7) 1.07</td><td>286.7 (268.6) 1.07</td></tr>
+</table></div>
+<ul>
+<li>Equal to BKP2 at 1–5 threads, 3–7% faster at almost every count from 6 up. Best 327.1 GFLOP/s, bs = 1,024, 15.8×, 58.1% of TPP.</li>
+<li>bs = 1,024 holds 57.3–58.9% of TPP per core at every thread count: near-linear scaling.</li>
+<li>bs = 3,072 still falls from 63% to 51%, the same shape as in BKP2. BKP4 has no private copies, so they are not the main cause of BKP2's L2 slowdown.</li>
+<li>Reps within 0.7% at bs = 1,024/1,536 except one slow rep at 12 threads (10.5% spread; median unaffected).</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Supported: diagonal parity is race-free, costs nothing at one thread, and beats the reduction by a few percent. The phase barrier and the uneven diagonal lengths cost too little to see.</p>
+
+<h2>Experiment 13: the final kernel on 16 cores (BKP5)<span class="axis-tag">parallel</span></h2>
+<h3>Question</h3>
+<p>Does BKQ7's single-core gain carry into BKP4's schedule, and which block size is best once single-core speed no longer depends on it?</p>
+<h3>Hypothesis</h3>
+<p>BKP5 keeps BKP4's near-linear scaling at BKQ7's per-core rate: ~22% over BKP4, ~400 GFLOP/s at 16 threads. The best block is set by the parallel side, probably 768–1,536.</p>
+<h3>Experiment Design</h3>
+<p><code>bkq_tile</code> becomes BKQ7's tile body (per-tile-column zero-padded segments, fused loop over the whole trapezoid), in BKP4's diagonal-parity schedule.</p>
+<div class="dev"><b>A race BKQ7 didn't have.</b> BKQ7 rounds each group's loop up to a multiple of 8 with zero products, which writes up to 6 elements past the top of the tile's range of <code>c</code>. Adding 0 is still a read-modify-write, and those elements belong to diagonal <code>d + 2</code>, which runs at the same time. BKP5 keeps the padding inside <code>[ii + jj − 1, iend + jend − 2]</code>: above the group's range where there is room (every group but a tile's last), otherwise one element below (diagonal <code>d − 2</code> ends two below). Besides the gate, the write ranges were checked by enumeration with the same formulas, for 308 cases (gate sizes, 100K, edge shapes, 300 random shapes and block sizes): every diagonal's range ends below the start of diagonal <code>d + 2</code>.</div>
+<h3>Experiment Run</h3>
+<p>Gate passed. Threads 1–16 × blocks 256–4,096, 5 reps (<code>03-BKP5/results/2026.10.18.002_threads_x_bs_100000x100000.csv</code>), then a plain thread sweep at the best block (<code>.003</code>). One thread: 25.1 GFLOP/s, ~1% under BKQ7.</p>
+<h3>Analysis</h3>
+@@C_BKP5BS@@
+@@C_THREADS@@
+<div class="scroll"><table>
+<tr><th>t</th><th>BKP5 bs 512</th><th>BKP4 bs 1024</th><th>ratio</th><th>BKP5 % TPP</th></tr>
+<tr><td>1</td><td>25.1</td><td>20.7</td><td>1.21</td><td>71.3</td></tr>
+<tr><td>4</td><td>100.0</td><td>82.7</td><td>1.21</td><td>71.0</td></tr>
+<tr><td>8</td><td>199.6</td><td>164.6</td><td>1.21</td><td>70.9</td></tr>
+<tr><td>12</td><td>299.0</td><td>246.7</td><td>1.21</td><td>70.8</td></tr>
+<tr><td>16</td><td><b>396.6</b></td><td>327.1</td><td>1.21</td><td>70.4</td></tr>
+</table></div>
+<ul>
+<li>Blocks 512, 768 and 1,024 are within 1% of each other at every thread count and scale almost perfectly: bs = 512 goes 25.1 → 397.4 GFLOP/s (15.8×). 256 is ~5% lower throughout.</li>
+<li>Large blocks fall away above ~8 threads; bs = 4,096 drops sharply at 13 threads (265 → 217). At 100K it has only 25 diagonals per phase, so likely imbalance (not measured), on top of Experiment 10's L2 effect.</li>
+<li>BKP5 is 21–23% faster than BKP4 at every thread count; per-core rate 70.4–71.3% of TPP from 1 to 16 threads. Reps within 0.4% except one slow rep at 9 threads.</li>
+</ul>
+<h3>Follow-up: what limits BKP5?</h3>
+<p>Five counter groups, all counted 100% of the time, 100K, bs = 512 (user-mode counts, summed over threads; script <code>03-BKP5/perf_groups.sh</code>):</p>
+<div class="scroll"><table>
+<tr><th class="l">per useful vector FMA</th><th>BKQ4 1536, 1 core</th><th>BKP5, t = 1</th><th>BKP5, t = 16</th></tr>
+<tr><td class="l">cycles (1.0 = TPP)</td><td>1.654</td><td>1.393</td><td>1.426</td></tr>
+<tr><td class="l">load µops</td><td>2.372</td><td>2.344</td><td>2.345</td></tr>
+<tr><td class="l">split loads</td><td>0.065</td><td>0.009</td><td>0.009</td></tr>
+<tr><td class="l">L1 misses, % of loads</td><td>9.3%</td><td>0.20%</td><td>0.24%</td></tr>
+<tr><td class="l">load buffer full, % of cycles</td><td>12.9%</td><td>0.8%</td><td>1.3%</td></tr>
+<tr><td class="l">memory scheduler full, % of slots</td><td>23.9%</td><td>2.0%</td><td>2.2%</td></tr>
+<tr><td class="l"><b>FP scheduler full, % of slots</b></td><td>30.4%</td><td><b>48.3%</b></td><td><b>47.3%</b></td></tr>
+<tr><td class="l">retiring, % of slots</td><td>40.3%</td><td>44.7%</td><td>43.9%</td></tr>
+</table></div>
+<ul>
+<li>The memory side has dropped out. The per-tile-column segments also cured the old L1 misses (9.3% → 0.2% of loads).</li>
+<li>The FP scheduler is full 48% of slots: FMAs waiting for the previous FMA of their chain. At 1.39 cycles per FMA about 48 / (8 × 1.39) ≈ 4.3 chains must be in flight, ~35 waiting FMAs, which apparently fills it (the scheduler's size is not in the references; not measured).</li>
+<li>Two ceilings remain above it. The load port: 2.34 load µops per FMA on two 128-bit load pipes is a floor of ~1.17 cycles per FMA, ~85% of TPP. FMA throughput: 100%.</li>
+<li>Threading costs 2.4% (a little front-end and barrier waiting, 1.1% of slots).</li>
+</ul>
+<h3>Conclusions</h3>
+<p>Supported: 397 GFLOP/s, 70.4–70.6% of 16-core TPP, 21% above BKP4, with near-linear scaling. Almost all of the gap to TPP is inside the single-core kernel, now bound by the FMA dependency chains.</p>
+
+<h2>Summary</h2>
+<div class="summary">
+<div class="scroll"><table>
+<tr><th class="l">at 100K × 100K</th><th>GFLOP/s</th><th>% TPP</th><th>over BKQ</th></tr>
+<tr><td class="l">OPQ (PA2, ≈ 27%)</td><td>≈ 9.4</td><td>≈ 27</td><td class="dim">0.7×</td></tr>
+<tr><td class="l">BKQ, plain blocking (1 core)</td><td>13.22</td><td>37.6</td><td>1.0×</td></tr>
+<tr><td class="l">BKQ4, aligned copies, 4,096-byte spacing (1 core)</td><td>22.23</td><td>63.2</td><td>1.7×</td></tr>
+<tr><td class="l">BKQ7, vector edges (1 core)</td><td>25.40</td><td>72.2</td><td>1.9×</td></tr>
+<tr><td class="l">BKP1, tile rows + reduction, 16 threads</td><td>283.1</td><td>50.3</td><td>21.4×</td></tr>
+<tr><td class="l">BKP2, tiles + reduction, 16 threads</td><td>314.3</td><td>55.8</td><td>23.8×</td></tr>
+<tr><td class="l">BKP4, diagonal parity, 16 threads</td><td>327.1</td><td>58.1</td><td>24.7×</td></tr>
+<tr><td class="l"><b>BKP5, diagonal parity + BKQ7 kernel, 16 threads</b></td><td><b>397.4</b></td><td><b>70.6</b></td><td><b>30.1×</b></td></tr>
+</table></div></div>
+<h3>Final configurations</h3>
+<ul>
+<li><b>BKQ7</b> (Part A): square tiles, R = 8 unroll-and-jam with the chain of 8 FMAs kept (<code>no-associative-math</code>), four shifted copies of <code>b</code> built as zero-padded 64-byte-aligned segments per tile column, spaced a multiple of 4,096 bytes, fused loop over each row group's whole trapezoid. 72.2% TPP on one E-core at bs = 768, 70–72% at any block from 256 to 4,096.</li>
+<li><b>BKP5</b> (Part B): BKQ7's tile body in a <code>noinline</code>, <code>restrict</code>-qualified function; tiles grouped by anti-diagonal, even diagonals then odd, whole diagonals dealt with <code>schedule(dynamic, 1)</code>; zero padding kept inside each tile's own range of <code>c</code>. No reduction. 397 GFLOP/s at 16 threads, bs = 512 (512–1,024 equivalent).</li>
+</ul>
+<h3>The most useful things learned</h3>
+<ol>
+<li>Each single-core step removed one limit and exposed the next: loads per FMA (unroll-and-jam), compiler regrouping (keep the chain), split loads (aligned copies), placement of the copies, scalar edge work, and now the FMA chain itself. Measuring before each step (the BKQ3 profile pointed at splits, not latency) avoided working on the wrong one.</li>
+<li>Where the copies of <code>b</code> sit relative to each other mod 4,096 bytes changed the rate by up to 1.4× at the same block size; a spacing that is an exact multiple of 4,096 was best at every size.</li>
+<li>The fixed scalar edge work per row group cost far more than its share of the products suggested. Doing it inside the vector loop, with zero-padded copies, gave +22% and made the block size irrelevant on one core.</li>
+<li>For <code>(i, j)</code> tiles of this kernel, every tile on an anti-diagonal writes the same range of <code>c</code>: the races are along diagonals, not just with four neighbours. Diagonals of one parity are mutually race-free, and that schedule beat the array reduction by 3–7%.</li>
+<li>Writes of zero are still writes: padding that never changes a value can still race if another thread owns the element.</li>
+<li>OpenMP's outlining drops <code>restrict</code> on shared pointers, which halved the kernel in BKP3. Putting the tile body in a <code>restrict</code>-qualified function fixed it; the disassembly check (one store of <code>c</code> per 8 FMAs) caught it.</li>
+</ol>
+<h3>Open items</h3>
+<ul>
+<li>The kernel is now bound by the FMA chains (FP scheduler full 48%). The PA2 reference report used U = 3 interleaved accumulators for this; BKQ5's <code>#pragma GCC unroll</code> did not interleave and was 14–22% slower at large blocks, unexplained. Shorter chains (two partial sums per output) would change the summation order and how <code>BPM_ACC</code> is applied.</li>
+<li>Past ~85% of TPP the load port is the limit: fewer loads per FMA would need <code>b</code> vectors reused across rows within 16 registers.</li>
+<li>Unexplained: why BKQ7 gained twice the model's estimate; the ~2% dip at bs = 1,536–2,048 in BKQ7; w = 4 slower than w = 2; whether the placement effect is L1 sets or 4K aliasing; why BKP2's L1 misses per FMA double with threads; bs = 4,096's drop at 13 threads in BKP5.</li>
+<li>PA3.md's "four neighbors" race statement does not match this tiling; worth asking the instructor which index space it meant.</li>
+<li>The shared gate tune has no <code>block_width</code>; rectangular tiles were only checked with scratch builds. Adding it needs an approved change to <code>shared/include/kernel.h</code>.</li>
+<li>The copies of <code>b</code> are built serially inside the timed kernel; their cost at 16 threads was not measured.</li>
+</ul>
+<h3>Notes on method</h3>
+<ul>
+<li><code>sweep.sh --record-seq</code> refuses <code>--tune</code>, so each recorded T(seq) is the untuned default (bs = 64). Thread-sweep speedups are against each sweep's own 1-thread time (<code>min</code> of the two, as the harness does).</li>
+<li><code>plot.py</code> overlays several CSVs only on a thread axis. The cross-variant single-core plot therefore uses fresh one-configuration runs of each variant at its best block, and the BKP5 comparison a separate bs = 512 thread sweep.</li>
+<li>Another user's rsync ran for much of the session and sometimes moved onto core 16. Rep spreads are reported with each experiment; the few large ones were single slow reps with the median unaffected.</li>
+<li>The BKQ5 control build, the rectangular-tile gate builds and the <code>schedule-insns</code> test were scratch builds outside the project; their timings are quick checks (3 reps), not sweep CSVs.</li>
+<li>Workbooks: each variant's <code>plots/</code> directory; cross-variant plots in <code>plots/</code>. The step-by-step log, including every command, is <code>record.md</code>.</li>
+</ul>
+
+<h2 id="terms">Terms</h2>
+<p>"Glossary" is <code>reference/Glossary.md</code>; the Procinfo files are in <code>reference/</code> too. Terms marked "this report" are in neither.</p>
+<div class="scroll"><table class="terms">
+<tr><th>term</th><th class="l">what it means here</th><th class="l">read more</th></tr>
+<tr class="grp"><td colspan="3">Rates and peaks</td></tr>
+<tr><td>flop, GFLOP/s</td><td>One floating-point multiply or add; billions per second. Each (i, j) pair is 2 flops.</td><td>Glossary: FLOP</td></tr>
+<tr><td>TPP</td><td>Theoretical program peak, 35.2 GFLOP/s per E-core (2.2 GHz × 16 flops per cycle). % TPP = GFLOP/s ÷ (35.2 × threads).</td><td>Glossary: TPP. Procinfo1 § 2</td></tr>
+<tr><td>speedup, T(seq)</td><td>Sequential time ÷ time with t threads; here against the same variant and block on one thread.</td><td>EXPERIMENTS.md</td></tr>
+<tr><td>vector FMA</td><td>One 256-bit fused multiply-add: 8 multiply-adds, 16 flops.</td><td>Glossary: FMA, SIMD</td></tr>
+<tr class="grp"><td colspan="3">The machine</td></tr>
+<tr><td>E-core, cluster</td><td>The 16 small cores (cpus 16–31), in 4 clusters of 4 sharing one L2 each.</td><td>Procinfo1 § 1</td></tr>
+<tr><td>L1, L2</td><td>32 KB per E-core (8-way, 64 sets); 4 MB per cluster.</td><td>Procinfo1 § 4; /sys cache info</td></tr>
+<tr><td>cache line, set</td><td>64-byte unit of memory traffic; the set is fixed by address bits 6–11, so addresses 4,096 bytes apart share a set.</td><td>Glossary</td></tr>
+<tr><td>µop, load port</td><td>Internal steps of an instruction; a 256-bit load, store or FMA is two. Two 128-bit load pipes: one 256-bit load per cycle.</td><td>Procinfo2 § 1.A; Procinfo3 § 2.D</td></tr>
+<tr><td>pipeline slot</td><td>One chance per cycle to accept one µop; 5 per cycle on an E-core.</td><td>Procinfo3 § 1.B</td></tr>
+<tr><td>latency, dependency chain</td><td>An FMA's result takes 6 cycles; a chain is a run of FMAs each needing the previous result.</td><td>Procinfo2 § 2.A</td></tr>
+<tr><td>split load</td><td>A load that straddles two cache lines.</td><td>Glossary: Cache-line split</td></tr>
+<tr><td>load buffer</td><td>The queue that tracks loads in flight.</td><td>Glossary: Load queue</td></tr>
+<tr><td>FP / memory scheduler</td><td>Where accepted µops wait for inputs and a port. Counters <code>topdown_be_bound.non_mem_scheduler</code> / <code>.mem_scheduler</code>.</td><td>this report</td></tr>
+<tr><td>4K aliasing</td><td>A load held up because its address matches an older store's in the low 12 bits. Counter <code>ld_blocks.address_alias</code>.</td><td>this report</td></tr>
+<tr class="grp"><td colspan="3">The kernel</td></tr>
+<tr><td>tile, block_size</td><td>A <code>bs × bs</code> piece of the (i, j) rectangle, finished before the next.</td><td>this report</td></tr>
+<tr><td>unroll-and-jam, fused loop</td><td>8 rows handled together in one loop over t, all adding into <code>c[i0+t]</code>.</td><td>Experiment 2</td></tr>
+<tr><td>ragged ends</td><td>The products of a row group outside the fused loop's range; scalar until BKQ7.</td><td>Experiments 2, 7, 8</td></tr>
+<tr><td>shifted copies, segment</td><td>Copies of <code>b</code> offset by 0–3 floats so every row's loads are aligned; in BKQ7/BKP5 one zero-padded segment per tile column.</td><td>Experiments 4, 8</td></tr>
+<tr><td>reassociation</td><td><code>-ffast-math</code> lets the compiler regroup additions; <code>no-associative-math</code> on the kernel keeps the 8-FMA chain.</td><td>Experiment 3</td></tr>
+<tr><td>gate (oracle, gold)</td><td>The shared correctness check, with Kahan-compensated accumulation in the checking build.</td><td>READ_ME_FIRST.md; DESIGN.md</td></tr>
+<tr class="grp"><td colspan="3">Parallelizing</td></tr>
+<tr><td>race</td><td>Two threads update the same <code>c[k]</code> without coordination and an update is lost.</td><td>this report</td></tr>
+<tr><td>array reduction</td><td>Each thread adds into a private copy of <code>c</code>; the copies are summed at the end.</td><td>Experiment 9</td></tr>
+<tr><td>collapse(2)</td><td>OpenMP treats the two tile loops as one, so threads are dealt single tiles.</td><td>Experiment 10</td></tr>
+<tr><td>anti-diagonal, d</td><td>Tiles with the same I + J; they write the same range of <code>c</code>.</td><td>Experiment 11</td></tr>
+<tr><td>diagonal parity</td><td>Run all even diagonals, barrier, then all odd ones; each diagonal by one thread.</td><td>Experiment 12</td></tr>
+<tr><td>schedule(static / dynamic, 1)</td><td>Fixed contiguous chunks per thread / one iteration at a time to whichever thread is free.</td><td>OpenMP</td></tr>
+<tr><td>outlining, restrict</td><td>GCC moves a parallel loop's body into a separate function; <code>restrict</code> promises a pointer doesn't alias others, and is lost on shared pointers there.</td><td>Experiment 11</td></tr>
+</table></div>
+</main>

@@ -1,0 +1,366 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intel Core i9-13900K Architecture and Performance Summary</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 0.8em;
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.4em;
+        }
+
+        h2 {
+            color: #0066cc;
+            font-size: 1.7em;
+            margin-top: 1.3em;
+            margin-bottom: 0.7em;
+        }
+
+        h3 {
+            color: #0088dd;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        .intro-text {
+            font-size: 1.05em;
+            color: #555;
+            margin-bottom: 1.5em;
+            font-style: italic;
+        }
+
+        pre {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+            margin-bottom: 1em;
+        }
+
+        code {
+            font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        p > code, li > code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        blockquote {
+            border-left: 4px solid #0066cc;
+            margin-left: 0;
+            padding-left: 12px;
+            margin-bottom: 1em;
+            color: #666;
+        }
+
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul, ol {
+            margin-left: 2em;
+            margin-bottom: 1em;
+        }
+
+        li {
+            margin-bottom: 0.5em;
+        }
+
+        strong, b {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        em, i {
+            font-style: italic;
+        }
+
+        hr {
+            border: 0;
+            height: 2px;
+            background-color: #ddd;
+            margin: 2em 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1e1e1e;
+                color: #e0e0e0;
+            }
+
+            .container {
+                background-color: #2d2d2d;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            }
+
+            h1 {
+                color: #e0e0e0;
+                border-bottom-color: #4da6ff;
+            }
+
+            h2 {
+                color: #4da6ff;
+            }
+
+            h3 {
+                color: #66b3ff;
+            }
+
+            strong, b {
+                color: #e0e0e0;
+            }
+
+            p > code, li > code {
+                background-color: #1a1a1a;
+                color: #ff6b6b;
+            }
+
+            pre {
+                background-color: #1a1a1a;
+                border-color: #444;
+                color: #e0e0e0;
+            }
+
+            blockquote {
+                border-left-color: #4da6ff;
+                color: #a0a0a0;
+            }
+
+            table th {
+                background-color: #333;
+            }
+
+            table tr:nth-child(even) {
+                background-color: #242424;
+            }
+
+            a {
+                color: #4da6ff;
+            }
+
+            .intro-text {
+                color: #a0a0a0;
+            }
+
+            hr {
+                background-color: #444;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+<h1 id="intel-core-i9-13900k-architecture-and-performance-summary">Intel Core i9-13900K Architecture and Performance Summary</h1>
+
+<h2 id="1-processor-details-cores-and-frequencies">1. Processor Details, Cores, and Frequencies</h2>
+<ul>
+<li><strong>Core Configuration:</strong> The processor features a total of 24 physical cores
+  and 32 execution threads, leveraging a performance hybrid architecture.</li>
+<li><strong>Performance Cores (8 P-Cores):</strong> Designed to handle heavy, single-threaded
+  primary workloads. These cores do not use clusters. Each P-core has its own
+  completely independent 2 MB L2 cache. These cores have Simultaneous
+  MultiThreading (SMT), which lets one core execute two threads at once.</li>
+<li><strong>Base Frequency (Without Turbo):</strong> 3.00 GHz</li>
+<li><strong>Efficient Cores (16 E-Cores):</strong> Optimized for background processes and
+  scalable, massive multi-threaded tasks. They are physically grouped into
+  <strong>4 distinct clusters</strong>. Each cluster contains exactly 4 E-cores, and all 4
+  cores within a single cluster must share one 4 MB block of L2 cache.</li>
+<li><strong>Base Frequency (Without Turbo):</strong> 2.20 GHz</li>
+<li><strong>Vector Execution Units:</strong> Execution relies strictly on the 256-bit AVX2 /
+  FMA3 instruction set baseline (AVX-512 capability is absent or permanently
+  disabled on this processor architecture).</li>
+<li><strong>P-Core Execution Density:</strong> Each P-core can issue <strong>two</strong> Fused
+  Multiply-Add (FMA) instructions per clock cycle. This results in 32
+  Single-Precision (FP32) operations per cycle per core.</li>
+<li><strong>E-Core Execution Density:</strong> Each E-core can issue only <strong>one</strong> Fused
+  Multiply-Add (FMA) instruction per clock cycle. This results in 16
+  Single-Precision (FP32) operations per cycle per core.</li>
+</ul>
+<hr />
+<h2 id="2-maximum-performance-calculation-at-nominal-frequency">2. Maximum Performance Calculation at Nominal Frequency</h2>
+<p>The maximum theoretical computing performance under standard baseline operating
+speeds is determined directly by multiplying the core count, nominal base
+frequency, and vector hardware capabilities:</p>
+<ul>
+<li><strong>Mathematical Formula:</strong>
+  <code>Performance (GFLOPs) = Cores × FrequencyCFGGG (GHz) × Operations per Cycle</code></li>
+<li><strong>P-Cores Base Calculation (3.00 GHz):</strong>
+  <code>8 Cores × 3.00 GHz × 32 Operations/Cycle = 768.0 GFLOPs</code></li>
+<li><strong>E-Cores Base Calculation (2.20 GHz):</strong>
+  <code>16 Cores × 2.20 GHz × 16 Operations/Cycle = 563.2 GFLOPs</code>
+  (35.2 GFLOPs on a single E-core — this is <code>TPP_per_core</code> as used
+  throughout this project, e.g. <code>EXPERIMENTS.md</code>, <code>VARIANTS.md</code>)</li>
+<li><strong>Combined Nominal Base Performance (Sum):</strong>
+  <code>768.0 GFLOPs + 563.2 GFLOPs = 1331.2 GFLOPs (1.331 TFLOPs)</code></li>
+</ul>
+<hr />
+<h2 id="3-turbo-boost-and-max-turbo-performance">3. Turbo Boost and Max Turbo Performance</h2>
+<p><strong>Turbo Boost is disabled on the fish machines for the semester, so
+this section informational.  <p>Turbo Boost is Intel's mechanism for scaling
+core clock frequency above the nominal base rate when workload demand,
+available power budget, and thermal headroom allow it. The busier and hotter
+the chip runs, the less margin there is to boost, so the achieved frequency is
+opportunistic, not guaranteed.  The peak figures below are a ceiling.  Intel
+does not publish a distinct <em>all-core</em> sustained turbo figure.
+
+</p>
+<ul>
+
+  <li><strong>P-Core Turbo Scaling:</strong> Intel's published Max Turbo
+  Frequency is 5.40 GHz; with Intel Turbo Boost Max Technology 3.0 (the single
+  favored core) that rises to 5.70 GHz, and with Intel Thermal Velocity Boost
+  (thermal headroom permitting) to 5.80 GHz.</li>
+
+  <li><strong>E-Core Turbo Scaling:</strong> The E-cores scale from their
+  baseline up to a published Max Turbo Frequency of 4.30 GHz.</li>
+  
+  <li><strong>P-Cores Peak Turbo Calculation (5.40 GHz, Intel's published Max
+  Turbo Frequency):</strong> <code>8 Cores × 5.40 GHz × 32 Operations/Cycle =
+  1,382.4 GFLOPs</code></li>
+
+  <li><strong>E-Cores Peak Turbo Calculation (4.30 GHz):</strong> <code>16
+  Cores × 4.30 GHz × 16 Operations/Cycle = 1,100.8 GFLOPs</code></li>
+  <li><strong>Combined Maximum Theoretical Turbo Peak (Sum):</strong>
+  <code>1,382.4 GFLOPs + 1,100.8 GFLOPs = 2,483.2 GFLOPs (2.483
+  TFLOPs)</code></li>
+  
+</ul>
+<hr />
+<h2 id="4-cache-hierarchy">4. Cache Hierarchy</h2>
+<h3 id="4a-cache-hierarchy-breakdown">4.A Cache Hierarchy Breakdown</h3>
+<ul>
+<li><strong>L1 Cache (2.125 MB Total):</strong> Smallest, fastest cache level operating at
+  core clock speed for immediate instructions; dedicated strictly per
+  individual core.</li>
+<li><strong>L2 Cache (32 MB Total):</strong> Mid-tier buffer split equally between 16 MB for
+  Performance-cores (2 MB dedicated per core) and 16 MB for Efficient-core
+  clusters (4 MB shared per 4-core cluster).</li>
+<li><strong>L3 Cache (36 MB Total):</strong> The only level officially branded as <strong>Intel
+  Smart Cache</strong>; acts as a massive shared pool before the CPU must access
+  slower system RAM. The L3 cache has some interesting features:</li>
+<li><strong>Dynamic Sharing:</strong> Like most level-3 caches, all 24 processor cores
+    access the same 36 MB pool.</li>
+<li><strong>Elastic Allocation:</strong> Active cores can dynamically claim up to the entire
+    36 MB cache size if other cores are idle.</li>
+<li><strong>Latency Reduction:</strong> by keeping critical data centrally accessible to
+    whichever core needs it next.</li>
+</ul>
+<h3 id="4b-approximate-access-costs">4.B Approximate Access Costs</h3>
+<p>Useful for reasoning about where time goes. Figures are typical rather than
+exact, and latency matters far less than it appears when many independent
+accesses are in flight at once. The L2 row below is the P-core case (private
+2 MB); an E-core's L2 is a 4 MB block shared by its whole 4-core cluster, so
+when sibling cores are contending for it, actual latency can run higher than
+this figure.</p>
+<table>
+<thead>
+<tr>
+<th>level</th>
+<th>size</th>
+<th>approximate latency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>register</td>
+<td>16 × 32 bytes</td>
+<td>0 cycles (operand of the instruction)</td>
+</tr>
+<tr>
+<td>L1 data</td>
+<td>48 KB per core</td>
+<td>~5 cycles</td>
+</tr>
+<tr>
+<td>L2</td>
+<td>2 MB per P-core</td>
+<td>~15 cycles</td>
+</tr>
+<tr>
+<td>L3</td>
+<td>36 MB shared</td>
+<td>~50 cycles</td>
+</tr>
+<tr>
+<td>DRAM</td>
+<td>—</td>
+<td>~200–300 cycles</td>
+</tr>
+</tbody>
+</table>
+<p>The jump that usually dominates is the last one. The jump that usually
+surprises people is the first: moving a value from L1 into a register still
+costs an instruction and a port, as discussed in Procinfo2 § 2.B.</p>
+    </div>
+</body>
+</html>

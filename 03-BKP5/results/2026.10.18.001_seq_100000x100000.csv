@@ -1,0 +1,7 @@
+variant,BKP5
+dA,100000
+dB,100000
+seq_time,1.064371576
+seq_time_source,recorded via --record-seq (/s/chopin/g/under/C835301300/Parallel/PA3.1/03-BKP5/results/2026.10.18.001_seq_100000x100000.csv)
+threads,rep1,rep2,rep3,rep4,rep5,rep6,rep7,median,mean_wo_outliers,gflops_median,gflops_mean_wo_outliers
+1,1.077540428,1.075462921,1.077331277,1.062017285,1.061324349,1.064371576,1.063111028,1.064371576,1.0687369805714286,18.79080619304324,18.714052536393243

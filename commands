@@ -1,0 +1,9 @@
+taskset -c 16 perf stat ./bin/PolyMult.time -dA 160000 -dB 160000 -t 1 -r 3
+taskset -c 16 perf stat -e cycles,instructions,cache-references,cache-misses,branches,branch-misses ./PolyMult.time -dA 160000 -dB 160000 -t 1 -r 3
+taskset -c 16 perf stat -e L1-dcache-loads,L1-dcache-load-misses,LLC-loads,LLC-load-misses ./PolyMult.time -dA 160000 -dB 160000 -t 1 -r 3
+taskset -c 16 perf record -g ./PolyMult.time -dA 160000 -dB 160000 -t 1 -r 3
+perf annotate kernel_multiply
+taskset -c 16 perf stat -e cycles,instructions -e cpu_atom/topdown-retiring/ -e cpu_atom/topdown-be-bound/ -e cpu_atom/topdown-fe-bound/ -e cpu_atom/topdown-bad-spec/ ./PolyMult.time -dA 160000 -dB 160000 -t 1 -r 3
+taskset -c 16 perf stat -M tma_backend_bound -M tma_memory_bound -M tma_core_bound ./PolyMult.time -dA 160000 -dB 160000 -t 1 -r 3
+
+taskset -c 16 perf stat -e cpu_atom/mem_scheduler_block.all/ -e cpu_atom/mem_scheduler_block.ld_buf/ -e cpu_atom/mem_scheduler_block.rsv/ -e cpu_atom/mem_scheduler_block.st_buf/ ./PolyMult.time -dA 160000 -dB 160000 -t 1 -r 3

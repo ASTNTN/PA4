@@ -1,0 +1,10 @@
+{
+  "entries": {
+    "100000x100000": {
+      "dA": 100000,
+      "dB": 100000,
+      "seq_time": 2.590781328,
+      "seq_time_source": "recorded via --record-seq (/s/chopin/g/under/C835301300/Parallel/PA3.1/03-BKP1/results/2026.10.18.001_seq_100000x100000.csv)"
+    }
+  }
+}

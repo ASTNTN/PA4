@@ -1,0 +1,8 @@
+variant,OPP22B
+dA,1000
+dB,4000
+gate_status,FAILED
+seq_time,0.000562909
+seq_time_source,min of 1: this sweep's own t=1 median (0.000562909s)
+threads,rep1,rep2,rep3,rep4,rep5,median,mean_wo_outliers,gflops_median,gflops_mean_wo_outliers
+1,0.000564949,0.000565753,0.000562909,0.000561624,0.000562385,0.000562909,0.0005635239999999999,14.229657013833497,14.214127526068102

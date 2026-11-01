@@ -1,0 +1,7 @@
+variant,BKQ6
+dA,100000
+dB,100000
+seq_time,2.554196357
+seq_time_source,recorded via --record-seq (/s/chopin/g/under/C835301300/Parallel/PA3.1/03-BKQ6/results/2026.10.18.001_seq_100000x100000.csv)
+threads,rep1,rep2,rep3,rep4,rep5,rep6,rep7,median,mean_wo_outliers,gflops_median,gflops_mean_wo_outliers
+1,2.555716367,2.554068192,2.554966583,2.554327735,2.553336868,2.553718201,2.554196357,2.554196357,2.5543329004285718,7.830408162311853,7.829989583050936
