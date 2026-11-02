@@ -1,0 +1,8 @@
+# started on Sun Nov  1 22:04:46 2026
+
+5338450276,,cpu_atom/cycles/u,2443051958,100.00,,
+5348031721,,cpu_atom/instructions/u,2443051958,100.00,,
+9909518473,,cpu_atom/uops_issued.any/u,2443051958,100.00,,
+16576803847,,cpu_atom/topdown_be_bound.all/u,2443051958,100.00,,
+2221943105,,cpu_atom/topdown_be_bound.mem_scheduler/u,2443051958,100.00,,
+14312566965,,cpu_atom/topdown_be_bound.non_mem_scheduler/u,2443051958,100.00,,

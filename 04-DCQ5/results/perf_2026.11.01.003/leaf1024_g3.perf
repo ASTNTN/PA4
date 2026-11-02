@@ -1,0 +1,9 @@
+# started on Sun Nov  1 22:04:38 2026
+
+5305381306,,cpu_atom/cycles/u,2088678277,85.00,,
+211589592,,cpu_atom/mem_scheduler_block.all/u,2088976210,85.00,,
+210379834,,cpu_atom/mem_scheduler_block.ld_buf/u,2088980123,85.00,,
+700647,,cpu_atom/mem_scheduler_block.st_buf/u,2088964735,85.00,,
+746398,,cpu_atom/mem_scheduler_block.rsv/u,2088990750,85.00,,
+3763160,,cpu_atom/topdown_be_bound.register/u,2088968531,85.00,,
+37743933,,cpu_atom/topdown_be_bound.reorder_buffer/u,2088206480,85.00,,

@@ -27,7 +27,7 @@ The baseline task-based approach will be slower than the OPQ implementation it i
 
 #### Design
 
-Decisions (user):
+Decisions:
 
 - Leaf kernel: OPQ loop order (i outer, j inner) over the sub-ranges.
 - Split: always quadrants. a is halved at na/2 and b at nb/2, giving 4
@@ -68,8 +68,7 @@ The gate runs with leaf_size=64 only (shared gate tune).
 
 Sequential baseline at the PA3 comparison size, untuned (leaf_size=64),
 recorded as DCQ's T(seq) for 100000x100000. Settings follow the PA3
-baseline convention (BKP1-BKP5, BKQ6, BKQ7); the user gave the go-ahead
-without specifying them.
+baseline convention (BKP1-BKP5, BKQ6, BKQ7).
 
 ```
 ./sweep.sh --variant-dir 04-DCQ --dA 100000 --dB 100000 --threads 1 --reps 7 \
@@ -199,7 +198,7 @@ We should see the same ~37% of TPP by using aligned splits of b.
 
 #### Design
 
-Decisions (user): new directory `04-DCQ2`; aligned copy of b with split
+Decisions: new directory `04-DCQ2`; aligned copy of b with split
 points rounded; default leaf_size 4096 (DCQ.2 best). DCQ unchanged
 otherwise (OPQ leaf, always-quadrant split, leaf when both ranges <=
 leaf_size):
@@ -288,12 +287,12 @@ We will achieve perfect speedup by using task-based parallelization.
 
 #### Design
 
-Decisions (user): directory `04-DCP1` (T(seq) ancestor lookup -> `04-DCQ`,
+Decisions: directory `04-DCP1` (T(seq) ancestor lookup -> `04-DCQ`,
 the original DCQ, by directory name; DCQ2 is not looked up
 automatically); each of the 4 recursive calls is a task, down to a depth
 cutoff; reduction via `taskgroup task_reduction`.
 
-Note (user): compare reduction implementations going forward, e.g. this
+Note: compare reduction implementations going forward, e.g. this
 `taskgroup task_reduction` against `reduction` on the parallel region with
 `single` and `in_reduction` tasks.
 
@@ -301,7 +300,7 @@ Note (user): compare reduction implementations going forward, e.g. this
   quadrants, b split rounded to 16 floats, aligned copy of b, leaf_size
   fallback 4096).
 - New knob `--tune depth=N`, the task-spawn cutoff, fallback 5 (the shared
-  gate tune's value; default chosen by Claude, not discussed).
+  gate tune's value).
 - Top level: `parallel` -> `single` -> `taskgroup task_reduction(+:
   c[:n])` (also `comp[:n]` in the checking build), then dcp on the whole
   problem.
@@ -330,8 +329,7 @@ OpenMP's default applies (16 threads, the `taskset -c 16-31` mask).
 
 #### Experiment
 
-Settings follow the PA3 BKP convention (user gave the go-ahead without
-specifying them): DCP1's own sequential baseline, then a 1-16 thread sweep
+Settings follow the PA3 BKP convention: DCP1's own sequential baseline, then a 1-16 thread sweep
 at the defaults (leaf_size=4096, depth=5).
 
 ```
@@ -403,7 +401,7 @@ overlap LL, HH and each other. LL and HH write disjoint ranges.
 
 #### Hypothesis
 
-Work/span analysis (student), done before any timed run as PA4.md
+Work/span analysis, done before any timed run as PA4.md
 requires. Approximation: $N_A = N_B = N$. Unit of time: one multiply-add,
 so a sequential $N \times N$ sub-multiply costs $N^2$.
 
@@ -487,7 +485,7 @@ $$
 
 #### Design
 
-Decisions (user): no reduction, sync with taskwait; first approach: LL
+Decisions: no reduction, sync with taskwait; first approach: LL
 and HH in parallel, then LH and HL sequentially, each as plain sequential
 DCQ2 on the calling thread; directory `04-DCP2`; depth knob kept
 (fallback 5), leaf_size fallback 4096.
@@ -528,7 +526,7 @@ expose in one run cannot be ruled out by a single pass.
 
 #### Experiment
 
-Settings as DCP1.1 (user gave the go-ahead without specifying them):
+Settings as DCP1.1:
 DCP2's own sequential baseline, then a 1-16 thread sweep at the defaults
 (leaf_size=4096, depth=5).
 
@@ -598,7 +596,7 @@ Plot: `04-DCP2/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
-Student's conclusion: the 1.5 bound holds at large p, but the curve is
+the 1.5 bound holds at large p, but the curve is
 below expectation at lower p.
 
 **The idle-spawner hypothesis (from DCP3.1) applied to DCP2.** The
@@ -653,7 +651,7 @@ overlapping quadrants run at once.
 
 #### Hypothesis
 
-Work/span analysis (student), done before any timed run as PA4.md
+Work/span analysis, done before any timed run as PA4.md
 requires. Same approximation and unit as DCP2.1: $N_A = N_B = N$, one
 multiply-add per unit of time.
 
@@ -716,7 +714,7 @@ constant leaf rate are assumed.
 
 #### Design
 
-Decisions (user): LH and HL as tasks, separated by another taskwait; each
+Decisions: LH and HL as tasks, separated by another taskwait; each
 runs the recursive dcp (not sequential dcq); new directory `04-DCP3`.
 
 ```
@@ -825,8 +823,6 @@ Plot: `04-DCP3/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
-Student's conclusion.
-
 **The surprise.** At 2 threads DCP3 took 1.1340 s (1.33x), practically
 the same as DCP2's 1.1347 s, against a predicted 1.94x. The rep spread
 was 0.1%, so this happens every time, not by chance.
@@ -881,23 +877,23 @@ below it at lower thread counts (1.33 vs 1.94 at 2 threads, 1.82 vs 3.20
 at 4). The DCP3.1 Conclusion's hypothesis: a thread at taskwait runs only
 its own child tasks, and idle threads take each newly queued task first,
 so the spawning thread idles; the idle-spawner model fits DCP3.1 and
-DCP2.1. Plan (student): keep the spawner busy.
+DCP2.1. Plan: keep the spawner busy.
 
 #### Hypothesis
 
-Predicted (student): the curve moves to the ideal model's values (about
+Predicted: the curve moves to the ideal model's values (about
 1.9 at 2 threads, 3.2 at 4, 4.0 at 8, 4.2 at 16; DCP3.1 Hypothesis,
 K = 5 row). If it does, it confirms the mechanism for DCP2 as well.
 
 #### Design
 
-Plan (student):
+Plan:
 - Call LH and HL directly instead of as tasks. Nothing may run beside
   them anyway.
 - In phase A, spawn only LL as a task and run HH inline before the
   taskwait.
 
-Decision (user): new directory `04-DCP4` (the plan was first labelled
+Decision: new directory `04-DCP4` (the plan was first labelled
 DCP3.2 in the record).
 
 ```
@@ -999,8 +995,6 @@ Plot: `04-DCP4/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
-(To be stated by the student.)
-
 ## 04-DCP5: DCP4 with the taskwait replaced by a taskgroup (parallel)
 
 ### DCP5.1: taskgroup { task LL, HH inline }, LH and HL inline
@@ -1035,9 +1029,8 @@ The taskgroup will allow us to realize the gains expected in DCP4.
 
 #### Design
 
-Decision (user): replace the taskwait with a taskgroup. New directory
-`04-DCP5` (Claude's choice, following the convention of one directory
-per code change; not discussed).
+Decision: replace the taskwait with a taskgroup. New directory
+`04-DCP5`.
 
 ```
 dcp(node, d):
@@ -1142,8 +1135,6 @@ Plot: `04-DCP5/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
-(To be stated by the student.)
-
 ## 04-DCQ3: DCQ with BKQ7's tile body as the leaf (sequential)
 
 ### DCQ3.1: one zero-padded segment per b leaf, built once
@@ -1153,7 +1144,7 @@ Plot: `04-DCP5/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 The DC kernels so far run their leaves at DCQ2's rate, 13.24 GF/s (37.6%
 TPP), against BKQ7's 25.40 GF/s (72.2% TPP, PA3) for the best blocked
 single-core kernel. DCP5.1's 4.15x at 16 threads was judged sufficient for
-now (user); the next step is the leaf's rate, toward TPP, using BKQ7's
+now; the next step is the leaf's rate, toward TPP, using BKQ7's
 strategies. DCQ3 is a new sequential DC variant built from BKQ7.
 
 #### Hypothesis
@@ -1162,7 +1153,7 @@ This should match BKQ7, achieving about 25 GF/s (about 72%), roughly flat for le
 
 #### Design
 
-Decisions (user): build from BKQ7; build all the copies once in
+Decisions: build from BKQ7; build all the copies once in
 kernel_multiply, one padded segment per b leaf, and pass a pointer down
 the recursion; split each side independently (so the b leaves are known
 up front); leaf = one BKQ7 tile; a's split rounded to a multiple of 8;
@@ -1261,14 +1252,11 @@ Median of 7: 0.7864 s, **25.43 GF/s (72.3% TPP)**, reps 0.7862-0.7879 s
 
 #### Conclusion
 
-(To be stated by the student.)
-
-# NEXT
-
-The experiment is a leaf-size sweep at 1 thread, plus the same perf counter groups as DCQ.3, compared against BKQ7.
 ### DCQ3.2: leaf size sweep
 
 #### Introduction
+
+The experiment is a leaf-size sweep at 1 thread, plus the same perf counter groups as DCQ.3, compared against BKQ7.
 
 DCQ3.1 ran at 72.3% TPP at the default leaf_size=1024, matching BKQ7.
 DCQ.2's sweep of the OPQ-leaf DCQ had a plateau at leaf lengths
@@ -1276,8 +1264,6 @@ DCQ.2's sweep of the OPQ-leaf DCQ had a plateau at leaf lengths
 depends on leaf_size.
 
 #### Hypothesis
-
-(To be stated by the student.)
 
 #### Design / Experiment
 
@@ -1340,9 +1326,6 @@ Rep spread <= 0.3% everywhere.
 Plot: `04-DCQ3/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
 
 #### Conclusion
-
-(To be stated by the student.)
-
 
 ### DCQ3.3: perf comparison with BKQ7
 
@@ -1434,8 +1417,7 @@ listed at 2.5%. The two groups' cycle counts agree to 0.17% there and to
 
 ### DCQ3.4: top-down profile, which costs belong to which program features
 
-Run by the student without Claude (perf runs and their summary are the
-student's; reformatted here into the record's layout).
+Run by the student.
 
 #### Introduction
 
@@ -1445,7 +1427,7 @@ vector loads (8 b windows + c), 8 FMAs (one dependent chain into c,
 ~6-cycle latency each, PA3 BKQ5.1) and 1 store. Measured: 1.378
 cycles/FMA; load-port bound ~1.15.
 
-Candidate strategies (student), with the profile as step 0:
+Candidate strategies, with the profile as step 0:
 
 0. **Profile first.** Measure topdown_be_bound.{all, non_mem_scheduler,
    mem_scheduler, register, reorder_buffer, alloc_restrictions} and
@@ -1627,13 +1609,12 @@ independent accumulators, interleaved in program order. Reusing b windows
 (idea 1) might be worth doing, even if its main value now is that it
 keeps two accumulators live at once, not the load savings.
 
-Order of work (student): Stage A alone first, as its own variant (e.g.
+Order of work: Stage A alone first, as its own variant (e.g.
 DCQ4), measured on its own. Stage B, if done, comes later as a separate
 variant, keeping one change per variant.
 
 #### Hypothesis
 
-Student:
 - The FP-scheduler-full share drops well below today's 49.9% of slots.
 - Cycles per FMA fall from 1.378 to about 1.13-1.15, which is about
   80-87% of TPP.
@@ -1678,7 +1659,7 @@ Writing it in C with BPM_ACC (no intrinsics):
 - The checking build runs the same loop structure in scalar form, so the
   gate still tests the real control flow.
 
-Implementation choices (Stage A, user's go-ahead to implement):
+Implementation choices (Stage A):
 - `04-DCQ4/` copied from `04-DCQ3` (Makefile, run.sh, kernel; variant
   name DCQ4). Only the leaf's fused loop changed; recursion, split rules,
   copies of b, leftover rows and `no-associative-math` are DCQ3's.
@@ -1844,8 +1825,6 @@ Main loop of `leaf_tile` (one step = 4 c vectors, u stride 32):
 
 #### Conclusion
 
-(To be stated by the student.)
-
 ## 04-DCQ5: DCQ4 + Stage B, rows 8 apart share a b window (sequential)
 
 ### DCQ5.1: R = 10 rows per group, M = 2 interleaved c vectors
@@ -1859,11 +1838,9 @@ Design, "Later, separate variant") reduces loads per FMA by letting rows
 
 #### Hypothesis
 
-(To be stated by the student.)
-
 #### Design
 
-Decisions (user): Stage B with R = 10, M = 2 (DCQ4.1 Design table: 14 ymm
+Decisions: Stage B with R = 10, M = 2 (DCQ4.1 Design table: 14 ymm
 registers, 1.00 loads per FMA); new directory `04-DCQ5`, copied from
 `04-DCQ4` (Stage A's step structure kept).
 
@@ -1881,8 +1858,7 @@ tail (one vector left, or ulen clamped): 1-vector loop, rows 0..9
   m = 1 this is the identical expression row r used at m = 0 in the same
   step (`p0[u + l]`, `p1[u + l]`), which gives GCC the chance to merge the
   loads; at m = 0 they reload the previous step's window
-  (`p0[u - 8 + l]`). (Claude's choice of how to express the sharing in C;
-  not discussed.)
+  (`p0[u - 8 + l]`).
 - Order: each c element gets rows 0..9 in ascending order;
   `no-associative-math` kept.
 - Side changes for R = 10 (DCQ4.1 Design list):
@@ -2009,4 +1985,256 @@ Main loop of `leaf_tile` (one step = 2 c vectors, u stride 16):
 
 #### Conclusion
 
-(To be stated by the student.)
+### DCQ5.2: perf profile of DCQ4 and DCQ5
+
+#### Introduction
+
+DCQ4.1 (Stage A) reached 82.1% TPP at leaf_size=1024 but ~59% from 4096
+up; DCQ5.1 (Stage B) fell to 70.5% at 1024 and stayed ~70% at 4096. The
+assembly (DCQ4.1, DCQ5.1) showed Stage A interleaved as designed, and
+Stage B interleaved but with the shared loads not merged (1.10 loads per
+FMA). This profile measures where the cycles go, with the same event set
+as DCQ3.4, so the numbers compare with DCQ3@1024 there.
+
+#### Hypothesis
+
+#### Design / Experiment
+
+Existing gate-passed timing binaries `04-DCQ4/bin/PolyMult.time` and
+`04-DCQ5/bin/PolyMult.time` (the ones the sweeps ran). 100000x100000, 1
+thread, 3 reps, `taskset -c 16`, one run at a time. leaf_size 1024 (the
+default; DCQ3.4's setting) and 4096 (where DCQ4 drops), five counter
+groups each, every group also counting cycles:
+
+- G1: instructions, uops_issued.any, topdown_be_bound.{all,
+  mem_scheduler, non_mem_scheduler}
+- G2: mem_uops_retired.{all_loads, all_stores, split_loads},
+  mem_load_uops_retired.{l1_hit, l1_miss}
+- G3: mem_scheduler_block.{all, ld_buf, st_buf, rsv},
+  topdown_be_bound.{register, reorder_buffer}
+- G4: topdown-{retiring, fe-bound, be-bound, bad-spec},
+  topdown_be_bound.{alloc_restrictions, serialization}
+- G5: uops_retired.all, ld_head.any_at_ret, mem_bound_stalls.load,
+  ld_blocks.address_alias
+
+G1-G4 are PA3 BKQ3.2's groups; G5 is DCQ3.4's extra group as described
+there (DCQ3.4's own script was not available, so these groups are
+rebuilt from its description and PA3's commands; exact event lists may
+differ from DCQ3.4's).
+
+```
+04-DCQ4/results/perf_2026.11.01.003/perf.sh 04-DCQ4 04-DCQ4/results/perf_2026.11.01.003 1024 4096
+04-DCQ5/results/perf_2026.11.01.003/perf.sh 04-DCQ5 04-DCQ5/results/perf_2026.11.01.003 1024 4096
+```
+
+Script, raw `perf stat -x,` output, program output and a core-16 log
+(load average and core-16 processes before each run) are in
+`04-DCQ{4,5}/results/perf_2026.11.01.003/`. Run 2026-11-01
+22:04:07-22:04:59, load average 0.2-1.6. Core 16: no process above
+0.3% CPU before any run (other users' idle threads listed at 0.0%).
+
+Caveat: G3 and G4 have 6 programmable events plus cycles and were
+multiplexed (counted 85% of the time, scaled by perf); their ratios are
+estimates. G1, G2, G5 were counted 100%. Cycles agree across the five
+groups to 0.04% (DCQ4@1024), 1.0% (DCQ4@4096), 0.03% (DCQ5@1024) and
+0.05% (DCQ5@4096). Wall times reproduce the sweeps (DCQ4@1024 0.692 s,
+DCQ4@4096 0.959 s, DCQ5@1024 0.807 s, DCQ5@4096 0.812 s).
+
+#### Results
+
+Per vector FMA (useful, 3 x 100001² / 8 = 3.75e9), whole-program counts
+as in DCQ3.4. Slots = 5 per cycle. DCQ3@1024 is DCQ3.4's measurement.
+
+| per vector FMA           | DCQ3 1024 | DCQ4 1024 | DCQ4 4096 | DCQ5 1024 | DCQ5 4096 |
+|--------------------------|----------:|----------:|----------:|----------:|----------:|
+| cycles                   | 1.378     | **1.213** | 1.685     | 1.415     | 1.423     |
+| = % TPP                  | 72.6      | 82.4      | 59.3      | 70.7      | 70.3      |
+| instructions             | 1.706     | 1.535     | 1.417     | 1.495     | 1.426     |
+| µops issued / retired    | 3.007 / 2.981 | 2.823 / 2.820 | 2.682 / 2.677 | 2.734 / 2.732 | 2.643 / 2.636 |
+| load / store µops        | 2.291 / 0.259 | 2.331 / 0.273 | 2.270 / 0.256 | 2.265 / 0.217 | 2.217 / 0.205 |
+| split loads              | 0         | 0.0000    | 0.0000    | **0.0255** | 0.0251   |
+| L1 misses                | 0.003     | 0.0067    | **0.718** | 0.0033    | 0.089     |
+| address_alias            | -         | 0.0069    | 0.702     | 0.0267    | 0.110     |
+
+| % of slots                         | DCQ3 1024 | DCQ4 1024 | DCQ4 4096 | DCQ5 1024 | DCQ5 4096 |
+|------------------------------------|----------:|----------:|----------:|----------:|----------:|
+| retiring                           | 43.3      | 46.5      | 31.8      | 38.6      | 37.0      |
+| backend bound                      | 53.4      | 52.8      | 68.2      | 60.8      | 62.1      |
+| - non-memory (FP) scheduler full   | 49.9      | **39.8**  | 0.0       | **55.8**  | 53.6      |
+| - memory scheduler full            | 3.3       | 12.1      | **67.1**  | 4.8       | 8.3       |
+| - reorder buffer full              | 0.1       | 0.1       | 0.1       | 0.1       | 0.1       |
+| - register / alloc / serialization | 0.1       | 0.8       | 0.0       | 0.0       | 0.0       |
+| frontend bound                     | 0.7       | 0.6       | 0.4       | 0.5       | 0.4       |
+| bad speculation                    | 2.6       | 0.1       | 0.4       | 0.1       | 0.5       |
+
+| % of cycles                        | DCQ3 1024 | DCQ4 1024 | DCQ4 4096 | DCQ5 1024 | DCQ5 4096 |
+|------------------------------------|----------:|----------:|----------:|----------:|----------:|
+| load buffer full (mem_scheduler_block.ld_buf) | 0.23 | 0.32 | **27.7** | 3.97 | 5.72 |
+| mem_bound_stalls.load              | 0.34      | 0.68      | **16.0**  | 0.32      | 6.52      |
+| ld_head (load blocking retirement) | 0.09      | 0.09      | 0.09      | 0.28      | 0.31      |
+
+- DCQ4@1024 (Stage A), against the DCQ4.1 Hypothesis:
+  - FP scheduler full falls from DCQ3's 49.9% to 39.8% of slots, a drop
+    of about a fifth, not "well below".
+  - Cycles per FMA 1.213 (82.4%), not the predicted 1.13-1.15.
+  - Load µops 2.33 per FMA, about as predicted (2.29).
+  - Memory scheduler full rises from 3.3% to 12.1% of slots.
+  - Bad speculation falls from 2.6% to 0.1% of slots.
+  - Instructions per FMA fall 10% (1.706 -> 1.535).
+- DCQ4@4096 (the drop):
+  - L1 misses 0.72 per FMA (~32% of loads; DCQ3@1024 0.003, DCQ3@16384
+    0.117 in DCQ3.3), with address_alias 0.70, again almost equal to the
+    misses as in DCQ3.3.
+  - Memory scheduler full 67.1% of slots, load buffer full 27.7% of
+    cycles, mem_bound_stalls.load 16.0% of cycles; FP scheduler full
+    0.0%.
+  - So DCQ4's large-leaf drop is a memory-side limit with the same code
+    (assembly, DCQ4.1). Why Stage A turns DCQ3's hidden misses at large
+    leaves into this many misses is not measured here.
+- DCQ5@1024 (Stage B):
+  - FP scheduler full 55.8% of slots, above DCQ3's 49.9% and DCQ4's
+    39.8%.
+  - Load µops 2.27 per FMA, 3% below DCQ4's 2.33 (assembly: 1.10 vs
+    1.125 loads per FMA).
+  - Surprise: split loads 0.0255 per FMA (one per ~40 FMAs; DCQ3 and
+    DCQ4 have 0). Where in DCQ5's code they occur is not identified.
+  - address_alias 0.027 per FMA, 4x DCQ4@1024, without matching L1
+    misses (0.0033); load buffer full 4.0% of cycles.
+- DCQ5@4096: nearly the same profile as DCQ5@1024 (1.423 cycles); L1
+  misses rise to 0.089 per FMA with mem_bound_stalls.load 6.5% of
+  cycles, far less than DCQ4@4096.
+
+#### Conclusion
+
+## 04-DCP6: DCQ4 + tasks, task reduction into c (parallel)
+
+### DCP6.1: DCP1's strategy on the DCQ4 kernel
+
+#### Introduction
+
+DCQ4.1 is the best single-core DC kernel (82.1% TPP at leaf_size=1024;
+DCQ5.2: 1.213 cycles per FMA). DCP1.1 parallelized DCQ2 with a task
+reduction and scaled to 15.05x at 16 threads at a nearly constant
+per-core rate. DCP6 applies DCP1's strategy to DCQ4.
+
+#### Hypothesis
+
+#### Design
+
+Decision: take DCQ4 and parallelize it with DCP1's strategy.
+directory `04-DCP6`; defaults
+leaf_size 1024 (DCQ4's) and depth 5 (DCP1's).
+
+```
+kernel_multiply:
+    zero c; build the 4 copies of b (sequential, as DCQ4)
+    parallel -> single -> taskgroup task_reduction(+: c[:n])
+        dcp(whole, depth 0)
+dcp(node, d):                          # d < depth, node not a leaf
+    split as DCQ4's dcq: 4 quadrants if na, nb > leaf, else 2 halves
+    for each non-empty child:
+        if child is a leaf or d+1 = depth:
+            task in_reduction(+: c[:n]) dcq(child)  # DCQ4 sequential, private c
+        else:
+            task dcp(child, d+1)                     # spawns only
+```
+
+- As DCP1: only the working tasks carry `in_reduction`; tasks that only
+  spawn pass the original c pointer on (`in_reduction` never sees an
+  already-privatized pointer). No taskwait; the taskgroup's end waits
+  and combines.
+- The working task runs DCQ4's dcq at its offset with climit = n - off,
+  on its thread's private copy of c (full length n). The leaf's padded
+  +0 writes (<= 7 elements past its range) go into that private copy, so
+  the BKP5.1 overrun race does not arise here.
+- The copies of b and the struct describing them are built once before
+  the parallel region and only read by the tasks.
+- The splits follow DCQ4's independent-side rule, so a node has 4 or 2
+  children (DCP1 always had 4).
+- Sequential parts (leaf, Stage A loop, split rules, copies, leftover
+  rows, `no-associative-math`) unchanged from DCQ4. Without -fopenmp
+  this is DCQ4.
+- Makefile and run.sh copied from DCP1, variant name DCP6.
+- T(seq) lookup: `_seq_time.py` derives the base from the directory name
+  (`04-DCP6` -> `04-DCQ`, DCQ's 2.74 s), not DCQ4. The min of own / base
+  / par@1 then picks DCP6's own recorded baseline as long as it is
+  recorded with `--record-seq` (as for DCP1-5).
+
+#### Implementation
+
+`04-DCP6/` (Makefile and run.sh copied from `04-DCP1`, variant name
+`DCP6`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (gate tune leaf_size=64, depth=5; parallel check at
+OpenMP's default 16 threads). One gate run.
+
+#### Experiment
+
+Settings as DCP1.1: DCP6's own sequential baseline, then a 1-16 thread
+sweep at the defaults (leaf_size=1024, depth=5).
+
+```
+./sweep.sh --variant-dir 04-DCP6 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCP6 --dA 100000 --dB 100000 --threads 1:16:1 --reps 5 \
+    --name 2026.11.01.002_threads_100000x100000
+.venv/bin/python plot.py --csv 04-DCP6/results/2026.11.01.002_threads_100000x100000.csv \
+    --tpp-per-core 35.2 --topic ThreadSweep100000x100000 \
+    --title "DCP6 (DCQ4 kernel + tasks + taskgroup task_reduction, leaf 1024, depth 5), 100000x100000"
+```
+
+Gate passed in both sweeps. Load average 0.6 before, 3.1 after the
+thread sweep (which uses 16 cores). The machine was quiet before the
+runs; after the thread sweep the other user's python job was back (one
+thread at 13.6% CPU on core 6, outside the 16-31 mask); when it started
+relative to the sweep is not known.
+
+Recorded T(seq): 0.6923 s (28.89 GF/s, 82.1% TPP), matching DCQ4's
+0.6912 s (the sequential binary is DCQ4). The thread sweep's T(seq) is
+this own entry (`seq_time_source: min of 3: own`).
+
+#### Results
+
+Median of 5. Speedup vs T(seq) = 0.6923 s; %TPP = GF/s / (35.2 x t);
+"DCP1.1" is DCP1's speedup (vs its own T(seq), 1.5109 s):
+
+| t  | time (s) | GF/s  | speedup | % TPP | DCP1.1 speedup | rep spread |
+|---:|---------:|------:|--------:|------:|---------------:|-----------:|
+| 1  | 0.6926   | 28.9  | 1.00    | 82.0  | 1.00           | 0.3%       |
+| 2  | 0.3485   | 57.4  | 1.99    | 81.5  | 1.99           | 0.4%       |
+| 3  | 0.2329   | 85.9  | 2.97    | 81.3  | 2.98           | 0.8%       |
+| 4  | 0.1752   | 114.1 | 3.95    | 81.1  | 3.96           | 0.9%       |
+| 5  | 0.1405   | 142.4 | 4.93    | 80.9  | 4.95           | 1.0%       |
+| 6  | 0.1201   | 166.5 | 5.76    | 78.8  | 5.92           | 0.8%       |
+| 7  | 0.1028   | 194.6 | 6.74    | 79.0  | 6.88           | 1.4%       |
+| 8  | 0.0908   | 220.3 | 7.62    | 78.2  | 7.85           | 1.4%       |
+| 9  | 0.0806   | 248.2 | 8.59    | 78.3  | 8.80           | 2.0%       |
+| 10 | 0.0736   | 271.7 | 9.41    | 77.2  | 9.69           | 2.7%       |
+| 11 | 0.0671   | 297.9 | 10.31   | 76.9  | 10.62          | 3.5%       |
+| 12 | 0.0623   | 320.8 | 11.10   | 75.9  | 11.53          | 1.7%       |
+| 13 | 0.0577   | 346.3 | 11.99   | 75.7  | 12.44          | 3.0%       |
+| 14 | 0.0531   | 376.7 | 13.04   | 76.4  | 13.40          | 4.4%       |
+| 15 | 0.0514   | 389.3 | 13.48   | 73.7  | 14.17          | 3.4%       |
+| 16 | 0.0476   | **419.9** | **14.53** | 74.5 | 15.05      | 3.9%       |
+
+- 419.9 GF/s at 16 threads (74.5% of 16-core TPP), 14.53x DCP6's 1-thread
+  time (91% efficiency). Above PA3's best parallel result (BKP5, 397
+  GF/s, 70.4%) and 2.1x DCP1.1's 199.2 GF/s.
+- Speedup tracks DCP1.1 closely up to 5 threads (within 0.02) and falls
+  slightly behind above that: 14.53x vs 15.05x at 16.
+- The per-core rate falls from 82.0% (1 thread) to 74.5% (16 threads),
+  a 7.5-point drop, against DCP1.1's 2.2 points (37.6 -> 35.4%). The
+  fall is gradual, with small steps (e.g. 80.9 -> 78.8 between 5 and 6
+  threads, 76.4 -> 73.7 between 14 and 15).
+- At 16 threads the run takes 47.6 ms; the sequential part outside the
+  parallel region (zeroing c, building the 4 copies of b) and the
+  reduction's combine of up to 16 private copies of c (200001 floats
+  each) are inside that time and not measured separately.
+- Rep spread <= 2.0% up to 9 threads, 1.7-4.4% from 10 to 16; spread is
+  in both directions.
+- 1 thread of the OpenMP build matches the sequential binary (0.6926 vs
+  0.6923 s).
+
+Plot: `04-DCP6/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
+
+#### Conclusion

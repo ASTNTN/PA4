@@ -1,0 +1,8 @@
+# started on Sun Nov  1 22:04:49 2026
+
+5337066022,,cpu_atom/cycles/u,2442402872,100.00,,
+8313896368,,cpu_atom/mem_uops_retired.all_loads/u,2442402872,100.00,,
+767658616,,cpu_atom/mem_uops_retired.all_stores/u,2442402872,100.00,,
+94230075,,cpu_atom/mem_uops_retired.split_loads/u,2442402872,100.00,,
+7978471363,,cpu_atom/mem_load_uops_retired.l1_hit/u,2442402872,100.00,,
+334614600,,cpu_atom/mem_load_uops_retired.l1_miss/u,2442402872,100.00,,

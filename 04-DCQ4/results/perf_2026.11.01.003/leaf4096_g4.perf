@@ -1,0 +1,9 @@
+# started on Sun Nov  1 22:04:27 2026
+
+6368870065,,cpu_atom/cycles/u,2507320573,85.00,,
+10039685201,,cpu_atom/topdown-retiring/u,2507310472,85.00,,
+131754358,,cpu_atom/topdown-fe-bound/u,2507316032,85.00,,
+21543539371,,cpu_atom/topdown-be-bound/u,2507324305,85.00,,
+117091350,,cpu_atom/topdown-bad-spec/u,2507314087,85.00,,
+4105303,,cpu_atom/topdown_be_bound.alloc_restrictions/u,2507687183,85.00,,
+10628680,,cpu_atom/topdown_be_bound.serialization/u,2507541490,85.00,,

@@ -1,0 +1,7 @@
+# started on Sun Nov  1 22:04:56 2026
+
+5337240216,,cpu_atom/cycles/u,2442244083,100.00,,
+9886877323,,cpu_atom/uops_retired.all/u,2442244083,100.00,,
+16479851,,cpu_atom/ld_head.any_at_ret/u,2442244083,100.00,,
+348297396,,cpu_atom/mem_bound_stalls.load/u,2442244083,100.00,,
+411567169,,cpu_atom/ld_blocks.address_alias/u,2442244083,100.00,,

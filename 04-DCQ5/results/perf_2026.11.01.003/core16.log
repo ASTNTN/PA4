@@ -1,0 +1,70 @@
+2026-11-01 22:04:33
+ 22:04:33 up 19 days,  9:05,  1 user,  load average: 0.80, 0.72, 1.37
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:36
+ 22:04:36 up 19 days,  9:05,  1 user,  load average: 0.80, 0.72, 1.37
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:38
+ 22:04:38 up 19 days,  9:05,  1 user,  load average: 0.82, 0.72, 1.36
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:41
+ 22:04:41 up 19 days,  9:05,  1 user,  load average: 0.82, 0.72, 1.36
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:43
+ 22:04:43 up 19 days,  9:05,  1 user,  load average: 1.07, 0.78, 1.38
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:46
+ 22:04:46 up 19 days,  9:05,  1 user,  load average: 1.07, 0.78, 1.38
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:48
+ 22:04:48 up 19 days,  9:05,  1 user,  load average: 1.55, 0.88, 1.41
+USER         PID PSR %CPU COMMAND
+C835301+  903182  16  0.1 libuv-worker
+C835301+  903182  16  0.1 libuv-worker
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:51
+ 22:04:51 up 19 days,  9:05,  1 user,  load average: 1.55, 0.88, 1.41
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:54
+ 22:04:54 up 19 days,  9:05,  1 user,  load average: 1.50, 0.88, 1.41
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+2026-11-01 22:04:56
+ 22:04:56 up 19 days,  9:05,  1 user,  load average: 1.50, 0.88, 1.41
+USER         PID PSR %CPU COMMAND
+C837214+   15191  16  0.0 jemalloc_bg_thd
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
+C837214+   15191  16  0.0 python3
