@@ -1150,3 +1150,126 @@ Plot: `04-DCP5/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 #### Conclusion
 
 (To be stated by the student.)
+
+## 04-DCQ3: DCQ with BKQ7's tile body as the leaf (sequential)
+
+### DCQ3.1: one zero-padded segment per b leaf, built once
+
+#### Introduction
+
+The DC kernels so far run their leaves at DCQ2's rate, 13.24 GF/s (37.6%
+TPP), against BKQ7's 25.40 GF/s (72.2% TPP, PA3) for the best blocked
+single-core kernel. DCP5.1's 4.15x at 16 threads was judged sufficient for
+now (user); the next step is the leaf's rate, toward TPP, using BKQ7's
+strategies. DCQ3 is a new sequential DC variant built from BKQ7.
+
+#### Hypothesis
+
+This should match BKQ7, achieving about 25 GF/s (about 72%), roughly flat for leaves of about 391–3125, since the recursion itself cost nothing measurable in DCQ2.2.
+
+#### Design
+
+Decisions (user): build from BKQ7; build all the copies once in
+kernel_multiply, one padded segment per b leaf, and pass a pointer down
+the recursion; split each side independently (so the b leaves are known
+up front); leaf = one BKQ7 tile; a's split rounded to a multiple of 8;
+directory `04-DCQ3`, leaf_size default 1024.
+
+```
+kernel_multiply:
+    TJ = nleaves(nB)                       # b leaves from halving b alone
+    4 copies of b, each TJ zero-padded segments (one per b leaf, left to right)
+    dcq(a, nA, b, nB, copies, J=0, c)
+
+dcq(a, na, b, nb, J, c):
+    both na, nb > leaf:  LL, LH, HL, HH          # order as DCQ2
+    only na > leaf:      a_lo, a_hi              # same b leaf J
+    only nb > leaf:      b_lo (J), b_hi (J + nleaves(hb))
+    neither:             leaf_tile(a, na, b leaf J, c)
+```
+
+- Split rule:
+  - DCQ2's 4-way split ran until both sides were <= leaf, so b kept being
+    split as long as a was too long (e.g. b down to length 1 for dB=3).
+  - Now each side is split only while it is longer than leaf. The b
+    leaves are then a fixed partition of b, enumerated once in
+    kernel_multiply; J (index of the first b leaf of a b range) travels
+    down the recursion.
+  - hb = nb/2 rounded down to 16 floats (DCQ2's rule kept); ha = na/2
+    rounded down to 8 rows (fallback na/2 when na < 16).
+- Copies (BKQ7):
+  - 4 copies; copy s, segment J holds seg[s + 7 + x] = b[jj + x] for the
+    b leaf [jj, jj + w), zeros elsewhere.
+  - Segment size from the widest b leaf, min(leaf, nB): w + 7 + 8 + 7 + 4
+    rounded up to 16 floats.
+  - Copies spaced a multiple of 1024 floats (4096 B), as BKQ6/7.
+  - A struct with the buffer pointer, copy spacing and segment size is
+    passed down the recursion.
+- Leaf (BKQ7's tile body):
+  - Rows in groups of R = 8. Row r reads copy s = (r + 1) % 4 through
+    p[r] = seg + s + 7 - r.
+  - The fused loop covers the group's whole trapezoid, u = 0 .. w + 6,
+    rounded up to a multiple of 8. The extra products are a * 0.
+  - Leftover rows (last a leaf only) run as scalar OPQ rows reading b
+    directly.
+  - The leaf is compiled with `no-associative-math` (BKQ3). It assumes
+    finite inputs.
+- The padded loop may add +0 to up to 7 elements of c past the leaf's
+  own range (clamped to the end of c via a `climit` argument).
+  Sequentially this changes no value. In a parallel version those
+  elements can belong to a concurrently running leaf (the BKP5.1 race).
+- Dropped from BKQ7: the block_size, block_width and copy_pad knobs (the
+  tile is the leaf).
+- Dropped from DCQ2: the aligned plain copy of b (the fused loop reads
+  the segments; the leftover rows read b directly).
+- Makefile and run.sh copied from DCQ2, variant name DCQ3.
+
+#### Implementation
+
+`04-DCQ3/` (Makefile and run.sh copied from `04-DCQ2`, variant name
+`DCQ3`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (gate tune leaf_size=64; the kernel has no OpenMP
+code, so the parallel check runs the same sequential kernel).
+
+#### Experiment
+
+Same as DCQ2.1: sequential baseline at the default (leaf_size=1024),
+recorded as DCQ3's T(seq) for 100000x100000.
+
+```
+./sweep.sh --variant-dir 04-DCQ3 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+```
+
+Gate passed again inside the sweep. The other user's python job (one
+thread at ~92% CPU, seen on core 4, not pinned) was running, as for
+DCP3.1-DCP5.1; the timing core is 16. Load average 2.1 before, 2.8
+after.
+
+#### Results
+
+Median of 7: 0.7864 s, **25.43 GF/s (72.3% TPP)**, reps 0.7862-0.7879 s
+(within 0.2%).
+
+| variant (leaf / block size) | time (s) | GF/s  | % TPP |
+|-----------------------------|---------:|------:|------:|
+| DCQ2 (4096), DCQ2.1 run 2   | 1.511    | 13.24 | 37.6  |
+| **DCQ3 (1024)**             | 0.786    | 25.43 | 72.3  |
+| BKQ7 (768), PA3 BKQ7.2      | -        | 25.40 | 72.2  |
+
+- DCQ3 is 1.92x DCQ2 and matches BKQ7's best single-core rate (25.43 vs
+  25.40 GF/s), the best single-core rate measured so far.
+- At 100000 with leaf_size=1024, both sides halve 7 times, to leaves of
+  ~781 x ~781 (b leaves rounded to 16 floats, a leaves to 8 rows).
+- Building the 4 copies of b (once per call) is inside the timed region;
+  its cost is not measured separately.
+- Only the default leaf_size was timed; no leaf sweep yet.
+
+#### Conclusion
+
+(To be stated by the student.)
+
+# NEXT
+
+The experiment is a leaf-size sweep at 1 thread, plus the same perf counter groups as DCQ.3, compared against BKQ7.
