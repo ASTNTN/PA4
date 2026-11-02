@@ -1,0 +1,7 @@
+variant,DCP4
+dA,100000
+dB,100000
+seq_time,1.510108323
+seq_time_source,recorded via --record-seq (/s/chopin/g/under/C835301300/Parallel/PA4/04-DCP4/results/2026.11.01.001_seq_100000x100000.csv)
+threads,rep1,rep2,rep3,rep4,rep5,rep6,rep7,median,mean_wo_outliers,gflops_median,gflops_mean_wo_outliers
+1,1.511558099,1.510108323,1.509342821,1.509673161,1.510962254,1.509863941,1.51042047,1.510108323,1.5102755812857143,13.24434790364373,13.242881133636178

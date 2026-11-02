@@ -605,7 +605,46 @@ Plot: `04-DCP2/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
-The 1.5 bound holds at large p, but the curve is under expectation at lower p.
+Student's conclusion: the 1.5 bound holds at large p, but the curve is
+below expectation at lower p.
+
+**The idle-spawner hypothesis (from DCP3.1) applied to DCP2.** The
+hypothesis is that a thread at taskwait runs only its own child tasks,
+and idle threads take newly queued tasks first (not verified in
+libgomp's source). In DCP2 only phase A spawns tasks; LH and HL run as
+plain calls on the spawning thread after the taskwait, so the spawner is
+lost only in phase A:
+
+- Phase A: at 2 threads, LL and HH get 1 thread each. With 3 or more,
+  they share the other $p-1$ threads, split
+  $\lfloor (p-1)/2 \rfloor$ / $\lceil (p-1)/2 \rceil$.
+- Phases B and C: 0.25 of the node's $T_1$ each, sequential on the
+  spawner.
+
+| t     | measured  | ideal model (Hypothesis) | idle-spawner model |
+|------:|----------:|-------------------------:|-------------------:|
+| 2     | 1.33      | 1.33                     | 1.33               |
+| 3     | 1.33      | --                       | 1.33               |
+| 4     | 1.33      | 1.45                     | 1.33               |
+| 5-8   | 1.45      | 1.49 (t=8)               | 1.45               |
+| 9-10  | 1.46      | --                       | 1.45               |
+| 11-14 | 1.47-1.48 | --                       | 1.49               |
+| 15-16 | 1.49      | 1.50 (t=16)              | 1.49               |
+
+(Idle-spawner column computed by Claude from the student's DCP3.1 model,
+K = 5.)
+
+- The model gives the staircase: 1.33 for t = 2-4 because, with 3
+  threads in phase A, LL and HH each get one thread, and with 4 threads,
+  3 workers split 1/2, so the 1-thread subtree sets the time. The step to
+  1.45 at t = 5 comes when both subtrees first get 2 threads.
+- This accounts for the Results' surprise at 4 threads (1.33 measured vs
+  the ideal model's 1.45).
+- Above 8 threads the model has one more step, at t = 11 (1.45 -> 1.49),
+  while the measurement rises gradually from 1.46 at t = 9 to 1.49 at
+  t = 15-16.
+- At 2 threads DCP2 and DCP3 both take 0.75 of $T_1$ under this model,
+  matching their measured 1.1347 s and 1.1340 s.
 
 ## 04-DCP3: DCP2 + tasks for LH and HL, taskwait-separated (parallel)
 
@@ -790,6 +829,180 @@ Measured / model: 0.69 (t=2), 0.57 (t=4), 0.76 (t=8), 0.94 (t=16).
   1.5106 s).
 
 Plot: `04-DCP3/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
+
+#### Conclusion
+
+Student's conclusion.
+
+**The surprise.** At 2 threads DCP3 took 1.1340 s (1.33x), practically
+the same as DCP2's 1.1347 s, against a predicted 1.94x. The rep spread
+was 0.1%, so this happens every time, not by chance.
+
+**Hypothesis (the same one as for DCP2's later steps): the spawning
+thread idles at taskwait.** A thread that spawns tasks and then reaches
+taskwait appears to run only its own child tasks (not verified in
+libgomp's source). Idle threads waiting at the end of `single` grab any
+newly queued task immediately, so:
+
+- LH and HL are each a single task followed by a taskwait. An idle thread
+  almost always takes it first, and the thread that spawned it has
+  nothing to do for the whole phase.
+- LL and HH: with 3 or more threads, both get taken by other threads and
+  the spawner idles again.
+
+**Idle-spawner model:** "lose the spawner at each level".
+- Phase A: at 2 threads, LL and HH get 1 thread each. With 3 or more,
+  they share the other $p-1$ threads, split
+  $\lfloor (p-1)/2 \rfloor$ / $\lceil (p-1)/2 \rceil$.
+- Phases B (LH) and C (HL): $p-1$ threads each.
+- At 2 threads, phase A takes 0.25 of $T_1$, and LH and HL take 0.25
+  each, each on one thread. That's 0.75 of $T_1$, exactly 1.33x, which
+  explains why DCP2 and DCP3 match there.
+
+| t  | measured | ideal model | idle-spawner model |
+|---:|---------:|------------:|-------------------:|
+| 2  | 1.33     | 1.94        | 1.33               |
+| 3  | 1.60     | --          | 1.60               |
+| 4  | 1.82     | 3.20        | 1.78               |
+| 8  | 3.03     | 4.00        | 2.84               |
+| 16 | 3.93     | 4.20        | 3.88               |
+
+- The model matches t=2 and t=3 exactly and t=16 to within about 1%.
+- In between it is slightly pessimistic, which is expected: real threads
+  aren't tied to fixed groups and can help other subtrees. Over all 16
+  thread counts, measured / idle-spawner model is 1.00-1.03 for t <= 4
+  and t >= 13, and 1.03-1.11 for t = 5-12 (largest at t=6: 2.63 vs
+  2.37).
+- Another user's job was running during the sweep, which may explain
+  the 5-8% rep spread at 5-8 threads. It doesn't explain the medians,
+  since the model fits them without it.
+
+## 04-DCP4: DCP3 with the spawner kept busy (parallel)
+
+### DCP4.1: task LL, HH inline, taskwait, LH and HL inline
+
+#### Introduction
+
+DCP3.1 reached 3.93x at 16 threads against the ideal model's 4.20, and
+below it at lower thread counts (1.33 vs 1.94 at 2 threads, 1.82 vs 3.20
+at 4). The DCP3.1 Conclusion's hypothesis: a thread at taskwait runs only
+its own child tasks, and idle threads take each newly queued task first,
+so the spawning thread idles; the idle-spawner model fits DCP3.1 and
+DCP2.1. Plan (student): keep the spawner busy.
+
+#### Hypothesis
+
+Predicted (student): the curve moves to the ideal model's values (about
+1.9 at 2 threads, 3.2 at 4, 4.0 at 8, 4.2 at 16; DCP3.1 Hypothesis,
+K = 5 row). If it does, it confirms the mechanism for DCP2 as well.
+
+#### Design
+
+Plan (student):
+- Call LH and HL directly instead of as tasks. Nothing may run beside
+  them anyway.
+- In phase A, spawn only LL as a task and run HH inline before the
+  taskwait.
+
+Decision (user): new directory `04-DCP4` (the plan was first labelled
+DCP3.2 in the record).
+
+```
+dcp(node, d):
+    if d >= depth or node is a leaf: dcq(node)            # sequential DCQ2
+    else:
+        task dcp(LL, d+1)
+        dcp(HH, d+1)                                      # inline
+        taskwait
+        dcp(LH, d+1)                                      # inline
+        dcp(HL, d+1)                                      # inline
+top: parallel -> single -> dcp(whole, 0)
+```
+
+- LH and HL are direct calls to the recursive dcp (as they were dcp
+  tasks in DCP3), so each still parallelizes inside.
+- A direct dcp call returns only after its own taskwait and its own
+  LH/HL, so no taskwait follows HH, LH or HL.
+- OpenMP semantics: a direct call runs inside the caller's task, so the
+  tasks it spawns are children of that same task, and a taskwait waits
+  for all child tasks of the current task, including any spawned earlier
+  in the same task (e.g. the LL task while HH runs inline).
+- Without -fopenmp: quadrant order LL, HH, LH, HL, as in DCP2 and DCP3.
+- Copied from DCP3 (Makefile, run.sh, kernel); only dcp's body changed.
+  Defaults unchanged: leaf_size 4096, depth 5.
+
+#### Implementation
+
+`04-DCP4/` (Makefile and run.sh copied from `04-DCP3`, variant name
+`DCP4`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (leaf_size=64, depth=5; parallel check at OpenMP's
+default 16 threads). One gate run; a race that the gate happens not to
+expose in one run cannot be ruled out by a single pass.
+
+#### Experiment
+
+Settings as DCP3.1: DCP4's own sequential baseline, then a 1-16 thread
+sweep at the defaults (leaf_size=4096, depth=5, so K = 5).
+
+```
+./sweep.sh --variant-dir 04-DCP4 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCP4 --dA 100000 --dB 100000 --threads 1:16:1 --reps 5 \
+    --name 2026.11.01.002_threads_100000x100000
+.venv/bin/python plot.py --csv 04-DCP4/results/2026.11.01.002_threads_100000x100000.csv \
+    --tpp-per-core 35.2 --topic ThreadSweep100000x100000 \
+    --title "DCP4 (tasks, task LL + HH inline, taskwait, LH/HL inline, leaf 4096, depth 5), 100000x100000"
+```
+
+Gate passed in both sweeps. Same machine conditions as DCP3.1: the other
+user's python job (one thread at ~88% CPU, seen on cores 6-7, outside the
+16-31 mask, not pinned) ran throughout; run and noted as for DCP3.1.
+Load average 2.2 before, 9.4 after the thread sweep.
+
+Recorded T(seq): 1.5101 s (13.24 GF/s), matching DCP3's 1.5106 s (same
+sequential code). The thread sweep's T(seq) is the min of 3, which here
+is the sweep's own t=1 median, 1.5099 s
+(`seq_time_source: min of 3: this sweep's own t=1 median`).
+
+#### Results
+
+Median of 5. Speedup vs T(seq) = 1.5099 s; %TPP = GF/s / (35.2 x t);
+"ideal model" is the DCP3.1 Hypothesis K = 5 row (powers of 2 only), the
+values predicted here; "DCP3.1" is DCP3's measured speedup:
+
+| t  | time (s) | GF/s | speedup | ideal model | DCP3.1 | % TPP | rep spread |
+|---:|---------:|-----:|--------:|------------:|-------:|------:|-----------:|
+| 1  | 1.5099   | 13.2 | 1.00    | 1.00        | 1.00   | 37.6  | 0.1%       |
+| 2  | 1.1339   | 17.6 | 1.33    | 1.94        | 1.33   | 25.1  | 1.1%       |
+| 3  | 0.9365   | 21.4 | 1.61    |             | 1.60   | 20.2  | 0.1%       |
+| 4  | 0.9051   | 22.1 | 1.67    | 3.20        | 1.82   | 15.7  | 0.8%       |
+| 5  | 0.8851   | 22.6 | 1.71    |             | 2.26   | 12.8  | 1.4%       |
+| 6  | 0.8699   | 23.0 | 1.74    |             | 2.63   | 10.9  | 1.1%       |
+| 7  | 0.8681   | 23.0 | 1.74    |             | 2.85   | 9.4   | 1.3%       |
+| 8  | 0.8576   | 23.3 | 1.76    | 4.00        | 3.03   | 8.3   | 1.1%       |
+| 9  | 0.8592   | 23.3 | 1.76    |             | 3.25   | 7.3   | 0.9%       |
+| 10 | 0.8511   | 23.5 | 1.77    |             | 3.42   | 6.7   | 1.3%       |
+| 11 | 0.8530   | 23.4 | 1.77    |             | 3.56   | 6.1   | 0.4%       |
+| 12 | 0.8504   | 23.5 | 1.78    |             | 3.68   | 5.6   | 0.8%       |
+| 13 | 0.8518   | 23.5 | 1.77    |             | 3.72   | 5.1   | 0.2%       |
+| 14 | 0.8503   | 23.5 | 1.78    |             | 3.78   | 4.8   | 0.5%       |
+| 15 | 0.8488   | 23.6 | 1.78    |             | 3.87   | 4.5   | 0.5%       |
+| 16 | 0.8489   | 23.6 | **1.78** | 4.20       | 3.93   | 4.2   | 0.7%       |
+
+- Surprise: the prediction failed. Speedup 1.78x at 16 threads (23.6
+  GF/s), against the predicted 4.20 and below DCP3.1's 3.93.
+- At 2 threads, 1.33x again (1.1339 s), the same as DCP2.1 and DCP3.1,
+  against the predicted 1.94.
+- At 3 threads DCP4 matches DCP3.1 (1.61 vs 1.60); from 4 threads on it
+  falls behind, and the curve is nearly flat from about 6 threads
+  (1.74 -> 1.78 over t = 6-16).
+- Rep spread <= 1.4% at every thread count (DCP3.1 had 4.6-8.3% at
+  t = 5-8 under the same machine conditions).
+- 1 thread of the OpenMP build matches the sequential binary (1.5099 vs
+  1.5101 s).
+
+Plot: `04-DCP4/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
