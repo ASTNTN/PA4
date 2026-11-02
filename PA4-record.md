@@ -23,7 +23,7 @@ against OPQ/EXQ/BKQ before choosing the best leaf kernel by measurement.
 
 #### Hypothesis
 
-(To be stated by the student before the timed run.)
+The baseline task-based approach will be slower than the OPQ implementation it is based on.
 
 #### Design
 
@@ -101,7 +101,6 @@ PA3-record.md / notes.md; not re-measured here):
 
 #### Conclusion
 
-(To be stated by the student.)
 
 ### DCQ.2: leaf size sweep
 
@@ -114,7 +113,7 @@ gives leaves of only 33-64 coefficients per side.
 
 #### Hypothesis
 
-(Student's reasoning.) The leaves are too small; larger leaf sizes should
+The leaves are too small; larger leaf sizes should
 improve performance.
 
 #### Design / Experiment
@@ -182,8 +181,6 @@ numbers above stand and the original T(seq) entry was kept.
 
 #### Conclusion
 
-(To be stated by the student.)
-
 ## 04-DCQ2: DCQ + 64-byte-aligned b sub-ranges (sequential)
 
 ### DCQ2.1: aligned copy of b, splits of b rounded to 16 floats
@@ -198,7 +195,7 @@ the b windows (BKQ4) removed most split loads.
 
 #### Hypothesis
 
-(To be stated by the student.)
+We should see the same ~37% of TPP by using aligned splits of b.
 
 #### Design
 
@@ -272,8 +269,6 @@ with run 2's value.
 
 #### Conclusion
 
-(To be stated by the student.)
-
 ## 04-DCP1: DCQ2 + tasks, task reduction into c (parallel)
 
 ### DCP1.1: tasks for all 4 sub-multiplies down to a depth cutoff, taskgroup task_reduction
@@ -289,7 +284,7 @@ sub-multiplies race on c unless each accumulates into a private copy.
 
 #### Hypothesis
 
-(To be stated by the student.)
+We will achieve perfect speedup by using task-based parallelization.
 
 #### Design
 
@@ -388,8 +383,6 @@ Median of 5. Speedup vs T(seq) = 1.5109 s; %TPP = GF/s / (35.2 x t):
 Plot: `04-DCP1/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
-
-(To be stated by the student.)
 
 ## 04-DCP2: DCQ2 + tasks, no reduction, taskwait ordering (parallel)
 
@@ -1345,6 +1338,477 @@ Rep spread <= 0.3% everywhere.
 - The leaf_size=1024 point (0.7863 s) agrees with DCQ3.1's run (0.7864 s).
 
 Plot: `04-DCQ3/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
+
+#### Conclusion
+
+(To be stated by the student.)
+
+
+### DCQ3.3: perf comparison with BKQ7
+
+**Hypothesis.**
+- H1: DCQ3@1024 has the same per-FMA profile as BKQ7@768: cycles ~1.38
+  per vector FMA (72%), the same instructions, ~2.25 load µops (9 loads x
+  2 µops / 8 FMAs), and split loads near 0. The b copies are read at
+  16-B offsets and the c window moves 8 floats per group. The recursion
+  adds nothing measurable. Refuted if cycles or instructions per FMA
+  differ by more than ~2%.
+- H2: the 2048 dip is address placement, not leaf size: 4K aliasing or
+  L1 set conflicts between the copies and c. Supported if
+  `ld_blocks.address_alias` or L1 misses per FMA rise from DCQ3@1024 to
+  DCQ3@2048, and BKQ7@2048 shows the same. Refuted if neither moves.
+- H3: big leaves stay fast although the b segments (4 copies x ~50 KB
+  at 16384) exceed L1. L1 misses per FMA rise at 16384, but cycles do
+  not, because the streaming loads are prefetched from L2. Refuted if
+  L1 misses do not rise (the working set still fits), or if cycles rise.
+
+**Design / Experiment.** The existing gate-passed timing binaries in
+`../PA4/04-DCQ3/bin` and `../PA4/03-BKQ7/bin` were used (sources and
+`shared/` verified identical to this worktree). 100000x100000, 1 thread,
+3 reps, `taskset -c 16`, one run at a time. Two groups each, both 100%
+counted. Groups are the same as DCQ2.2 (G1: cycles, instructions,
+all_loads, split_loads; G2: cycles, l1_hit, l1_miss, address_alias).
+Configurations: DCQ3 leaf_size=1024 / 2048 / 16384; BKQ7 block_size=768 /
+2048. Script and raw output: `04-DCQ3/results/perf_2026.11.01.003/`. Run
+2026-11-01 20:53:53-~20:54:18, load average 1.6-2.0. Core 16 was clear
+before every group except one: before bkq7_bs2048 g1, a long-lived,
+mostly idle process of this user (`MainThread`, 0.2% lifetime CPU) was
+listed at 2.5%. The two groups' cycle counts agree to 0.17% there and to
+≤ 0.04% elsewhere. Wall times reproduce the sweeps (DCQ3@1024
+0.786 s).
+
+**Results.** Per vector FMA = 3 x 100001² / 8 = 3.75e9.
+
+|                          | DCQ3 1024 | BKQ7 768 | DCQ3 2048 | BKQ7 2048 | DCQ3 16384 |
+|--------------------------|----------:|---------:|----------:|----------:|-----------:|
+| wall (s, per rep)        | 0.786     | 0.788    | 0.806     | 0.804     | 0.786      |
+| cycles / FMA             | 1.378     | 1.381    | 1.414     | 1.411     | 1.379      |
+| = % TPP                  | 72.6      | 72.4     | 70.7      | 70.9      | 72.5       |
+| instructions / FMA       | 1.706     | 1.716    | 1.667     | 1.661     | 1.633      |
+| load µops / FMA          | 2.291     | 2.301    | 2.271     | 2.270     | 2.254      |
+| split loads / FMA        | 0.00000   | 0.00002  | 0.00000   | 0.00002   | 0.00000    |
+| L1 misses / FMA (% loads)| 0.0031 (0.14%) | 0.0025 (0.11%) | **0.302 (13.3%)** | **0.296 (13.0%)** | 0.117 (5.2%) |
+| address_alias / FMA      | 0.0029    | 0.0025   | **0.301** | **0.292** | 0.116      |
+
+- Load µops are ~2.25-2.30 per FMA, as designed (9 loads x 2 µops / 8
+  FMAs = 2.25, plus loop overhead). There are no split loads.
+- DCQ3@1024 and BKQ7@768 agree within 0.6% on every core counter.
+  DCQ3 is 0.2% faster in cycles.
+- DCQ3@2048 and BKQ7@2048 agree with each other. Both show L1 misses
+  about 100x higher than at 1024/768 (13% of loads) and address_alias
+  rising by the same amount. Cycles rise only 2.6%: ~0.036 extra cycles
+  per FMA for ~0.30 extra misses, so most of the miss latency is hidden.
+- DCQ3@16384: L1 misses 5.2% of loads, fewer than at 2048, with no cycle
+  cost (1.379, the same as 1024).
+- In all five runs `address_alias` ≈ `l1_miss` (within 1-3%). In DCQ2.2,
+  with the OPQ leaf, they were not equal (0.023 alias vs ~0.0065 misses
+  per FMA). PA3 BKQ4.3 saw the two move together with this kind of
+  copy layout and could not separate them.
+- Instructions fall with leaf size (1.706 -> 1.633): fewer per-group and
+  per-leaf setup instructions per FMA.
+
+**Conclusion.**
+- H1 supported. The DC recursion over BKQ7 tiles costs nothing
+  measurable. DCQ3 is BKQ7's kernel at the same per-FMA cost (1.378 vs
+  1.381 cycles).
+- H2 supported in part. The 2048 dip comes with a large jump in L1
+  misses and aliasing, the same in DCQ3 and BKQ7, so it belongs to the
+  copy/tile geometry shared by both kernels, not to the recursion. Copy
+  spacing is not the obvious difference. From the source, copies are
+  135168 floats apart at 1024 and 133120 at 2048. Both are multiples of
+  4096 B, and in both a segment is 128 B past a multiple of 4096 B
+  (seg = 1056 / 2080 floats; sized from leaf_size, not from the actual
+  leaf width). The missing piece is whether the cause
+  is L1 set conflicts (8 b streams, spaced by multiples of 4096 B plus
+  ≤ 16 B, sit in the same L1 set as each other, and c can add a 9th line
+  to an 8-way set) or 4K aliasing. The counters cannot separate them, as
+  in BKQ4.3. The non-monotonic miss rate (2048 > 16384 > 1024) fits a
+  placement effect better than a capacity effect. This is an inference.
+- H3 supported. At 16384 the L1 miss rate rises (0.14% -> 5.2%) with no
+  cycle cost: the streams are prefetched.
+- Headroom: 1.378 cycles per FMA against a load-port bound of ~1.15
+  (2.29 load µops per FMA at an assumed 2 load µops per cycle, i.e.
+  ~87%; the same cap as PA3's ~89% estimate). ~0.23 cycles per FMA are
+  not explained by the loads. Port/topdown counters were not measured.
+  They would be the next profile if 3b goes beyond 72%.
+
+### DCQ3.4: top-down profile, which costs belong to which program features
+
+Run by the student without Claude (perf runs and their summary are the
+student's; reformatted here into the record's layout).
+
+#### Introduction
+
+DCQ3.2 left DCQ3 at 72.3% TPP (leaf_size=1024), with lower rates at
+small leaves and a dip at 2048. The current kernel per 8 lanes does 9
+vector loads (8 b windows + c), 8 FMAs (one dependent chain into c,
+~6-cycle latency each, PA3 BKQ5.1) and 1 store. Measured: 1.378
+cycles/FMA; load-port bound ~1.15.
+
+Candidate strategies (student), with the profile as step 0:
+
+0. **Profile first.** Measure topdown_be_bound.{all, non_mem_scheduler,
+   mem_scheduler, register, reorder_buffer, alloc_restrictions} and
+   uops_issued.any on DCQ3@1024 (the events PA3 BKQ4.2 used). This
+   tells whether the remaining 0.23 cycles/FMA come from the load ports,
+   the FMA latency chain (scheduler full) or allocation.
+1. **Reuse each b window across rows 8 apart.** Row i, c vector v reads
+   b[8v-i .. 8v-i+7]. Row i+8, c vector v+1 reads exactly the same
+   window. With rows {i..i+3, i+8..i+11} per group, each loaded window
+   feeds 2 FMAs (into c_v and c_{v+1}). That is 4 b loads + 1 c load per
+   8 FMAs, 5 instead of 9, with a load bound of ~0.63 cycles/FMA. It uses
+   ~14 of 16 ymm registers (8 broadcasts, 4 windows, 2 accumulators), and
+   there are two independent chains live at once.
+   - Risk: in C this is `p_r[u-8]`, a load from the previous vector
+     iteration. GCC is unlikely to turn that into register reuse.
+     Intrinsics or vector extensions would bypass the mandatory scalar
+     `BPM_ACC` (PA3 BKQ5.1 note). That is a rules question for the
+     instructor before any design.
+2. **More independent chains.** Interleaving or unrolling (PA3 BKQ5.1:
+   neutral at 1024, worse at 2048-3072). Idea 1 also gets this.
+3. **Placement (copy_pad or per-call spacing).** Recovers the 2048 dip
+   (~2%), but not past 72%.
+4. Out of scope for "toward TPP": Karatsuba-style splitting (3
+   sub-products instead of 4) reduces the FLOPs themselves and changes
+   rounding behaviour.
+
+#### Hypothesis
+
+- H1: at leaf_size=1024 the kernel is backend-bound on the load side
+  (memory scheduler / load buffer full), as in PA3 BKQ3.2, but less than
+  there, because there are no split loads. The FP (non-memory) scheduler
+  being full, i.e. the FMA chain, is the second limit. Retiring is ~70%
+  of slots.
+- H2: at leaf_size=64 the extra cost is per-leaf and per-group work.
+  Zero-padded trapezoid products: tlen = roundup8(w+14) versus w useful,
+  ~10-25% at w≈48-57. Per-group setup (8 broadcasts, 8 pointers) and
+  recursion calls add instructions per useful FMA. Instructions and
+  µops per FMA rise; the stall categories stay similar.
+- H3: at 2048 the extra 0.036 cycles/FMA appear as load-side stall
+  (memory scheduler, or load latency at retirement: ld_head), matching
+  the L1 misses of DCQ3.3.
+- Time outside the leaf (zeroing c, building the copies, harness input
+  setup) is ≲ 1% (perf record).
+
+#### Design / Experiment
+
+Existing gate-passed binary `../PA4/04-DCQ3/bin/PolyMult.time` (source
+identical). 100000x100000, 1 thread, 3 reps, `taskset -c 16`, one run at a time. leaf_size 1024, 64
+and 2048, five counter groups each (the four PA3 BKQ3.2 groups, plus
+uops_retired, ld_head, mem_bound_stalls.load, address_alias). There were
+also two `perf record` runs (cycles, leaf_size 1024 and 64). Script, raw
+output, `.data` files and core-16 log are in
+`04-DCQ3/results/perf_2026.11.01.004/`. Run 2026-11-01 21:00:45-~21:01:32,
+load average 1.6-2.1. Core 16 was clear before every run except one:
+before leaf64 g3, the same idle `MainThread` process as in DCQ3.3 was
+listed at 2.5%.
+
+Caveat: groups 3 and 4 have 7 programmable events and were
+multiplexed (counted 85% of the time, scaled by perf). Their ratios are
+estimates. The other groups were counted 100%. Cycles agree across the
+five groups to 0.06% (1024), 0.76% (64) and 0.05% (2048).
+
+#### Results
+
+Per vector FMA (useful, 3 x 100001² / 8 = 3.75e9). Slots =
+5 per cycle (the sum of the level-1 categories is exactly 5.00 x cycles).
+
+| per vector FMA              | leaf 1024 | leaf 64 | leaf 2048 |
+|-----------------------------|----------:|--------:|----------:|
+| cycles                      | 1.378     | 1.863   | 1.414     |
+| instructions                | 1.706     | 3.378   | 1.667     |
+| µops issued / retired       | 3.007 / 2.981 | 5.119 / 5.089 | 2.943 / 2.930 |
+| load / store µops           | 2.291 / 0.259 | 3.030 / 0.499 | 2.271 / 0.255 |
+| split loads                 | 0         | 0       | 0         |
+| L1 misses                   | 0.003     | 0.012   | 0.302     |
+
+| % of slots                         | leaf 1024 | leaf 64 | leaf 2048 |
+|------------------------------------|----------:|--------:|----------:|
+| retiring                           | 43.3      | 54.7    | 41.5      |
+| backend bound                      | 53.4      | 43.0    | 56.7      |
+| - non-memory (FP) scheduler full   | **49.9**  | 30.3    | 43.6      |
+| - memory scheduler full            | 3.3       | 7.3     | **12.9**  |
+| - reorder buffer full              | 0.1       | 4.9     | 0.1       |
+| - register / alloc / serialization | 0.1       | 0.6     | 0.1       |
+| frontend bound                     | 0.7       | 1.1     | 0.6       |
+| bad speculation                    | 2.6       | 1.2     | 1.3       |
+
+| % of cycles                 | leaf 1024 | leaf 64 | leaf 2048 |
+|-----------------------------|----------:|--------:|----------:|
+| load buffer full            | 0.23      | 1.09    | 4.67      |
+| mem_bound_stalls.load       | 0.34      | 0.62    | **15.24** |
+| ld_head (load blocking retirement) | 0.09 | 0.05 | 0.10      |
+
+Where the time is (`perf record`, cycles): `leaf_tile` 99.67% at 1024
+and 97.50% at 64. `dcq` (the recursion) is 0.02% at 1024 and 2.15% at
+64. Copy building, c zeroing (`memset`) and harness input (`random`)
+are ≤ 0.2% together.
+
+Hot-loop samples at 1024 (`perf annotate`, subject to skid). 44% land
+on the c store `vmovups` and 18% on the following `add`. The FMAs
+together get ~29%: one late FMA has 12.7%, three others ~4.7% each, the
+rest < 2%. The first b load gets 2.4%.
+
+Arithmetic (Python replica of the split rules, not measured):
+
+| leaf_size | leaves | 8-row groups | vector iterations / group | executed / useful products |
+|---:|---:|---:|---:|---:|
+| 1024 | 16384 | 1.60M | 98.7 | 1.010 |
+| 64 | 4.20M | 25.6M | 7.1 | 1.164 |
+| 2048 | 4096 | 0.80M | 196.3 | 1.005 |
+
+Scalar leftover-row products are < 0.001% of useful products at every
+size.
+
+##### Cost → program features
+
+At leaf_size=1024, out of 1.378 cycles per useful FMA (1.0 = TPP):
+
+| program feature | counter evidence | approx. cost (cycles/FMA) |
+|---|---|---|
+| 1 FMA per cycle (the TPP floor) | — | 1.000 |
+| **8-FMA dependent chain into each c vector** (`no-associative-math`; one accumulator per c vector, 6-cycle FMA latency) | FP scheduler full 49.9% of slots while the FMA port is busy only ~73% of cycles; samples pile up on the store that waits for the chain's last FMA | **~0.29** (the remainder after the rows below) |
+| Loop exit at the end of every 8-row group (trip ~99) | bad speculation 2.6% of slots (≈ 2.6% × 1.378) | ~0.04 |
+| Load side: 9 loads per 8 FMAs (8 b windows + c), load buffer | memory scheduler 3.3% of slots, load buffer full 0.2% of cycles | ~0.05 |
+| Zero-padded trapezoid (tlen = roundup8(w+14)) | 1.0% extra products | ~0.01 |
+| Recursion, copy build, c zeroing, harness | perf record: 0.3% outside `leaf_tile` | < 0.01 |
+
+The slot fraction x cycles conversion is approximate; the categories are
+measured per slot, not per cycle.
+
+At leaf_size=64 (1.863 cycles/FMA, +0.485 over 1024):
+
+| program feature | evidence | approx. extra cost |
+|---|---|---|
+| Zero padding of the trapezoid at w ≈ 32-64 | 16.4% extra products (arithmetic) | ~0.21 |
+| Per-group setup and loop entry/exit (8 broadcasts, 8 pointers; 20x more groups, 7 iterations each) | instructions 3.38 vs 1.71/FMA; µops 5.1 vs 3.0; ROB full 4.9% of slots | ~0.23 (≈ 11 cycles per group) |
+| Recursion (`dcq`, 5.6M calls) | perf record: 2.15% of cycles | ~0.04 |
+
+At leaf_size=2048 (+0.036 over 1024): L1 misses (0.30 per FMA) show up as
+mem_bound_stalls.load 15.2% of cycles, memory scheduler full 12.9% of
+slots and load buffer full 4.7% of cycles. This is the copy/c placement
+effect of DCQ3.3.
+
+#### Conclusion
+
+- H1 refuted in its ordering. At 1024 the load side is now minor (3.3%
+  of slots). The dominant limit is the FP scheduler being full (49.9% of
+  slots): the FMA latency chain. Retiring is 43%, not ~70%. With
+  3.0 µops per FMA and 5 slots per cycle, retiring could reach at most
+  ~60% at TPP. This is the mirror image of PA3 BKQ3.2 (load buffer full
+  59%, FP scheduler 0%): aligned copies removed the load limit, and the
+  chain is next, as BKQ4.2 already hinted (~30%).
+- H2 supported. At 64 the extra cost splits roughly evenly between
+  zero-padding (~16% extra products) and per-group/per-leaf setup. The
+  recursion itself is only ~2%.
+- H3 supported. The 2048 dip is load stalls from L1 misses, 15% of
+  cycles, mostly hidden.
+- Outside-the-leaf costs are negligible (≤ 0.3%).
+- Implication for strategies (ideas section above):
+  - Idea 2, more independent chains interleaved in program order, now
+    targets the largest cost.
+  - Idea 1, b-window reuse, is still worth it, but mainly because it
+    gives two live accumulators. The load ports are no longer the
+    limit.
+  - Shortening the chain (for example 2 partial sums of 4 FMAs per c
+    vector) would also address it. That changes the summation order,
+    which is a correctness/rules question. PA3 BKQ2 showed GCC's
+    associative-math version split the FMAs badly.
+
+## 04-DCQ4: DCQ3 with interleaved c-vector accumulators (sequential)
+
+### DCQ4.1: Stage A, M = 4 interleaved c vectors per step
+
+#### Introduction
+
+Student: the biggest target is now the FMA chain (DCQ3.4: FP scheduler
+full 49.9% of slots at leaf_size=1024). The way to get at it is more
+independent accumulators, interleaved in program order. Reusing b windows
+(idea 1) might be worth doing, even if its main value now is that it
+keeps two accumulators live at once, not the load savings.
+
+Order of work (student): Stage A alone first, as its own variant (e.g.
+DCQ4), measured on its own. Stage B, if done, comes later as a separate
+variant, keeping one change per variant.
+
+#### Hypothesis
+
+Student:
+- The FP-scheduler-full share drops well below today's 49.9% of slots.
+- Cycles per FMA fall from 1.378 to about 1.13-1.15, which is about
+  80-87% of TPP.
+- Load µops stay at about 2.29 per FMA.
+- Timed output is bitwise identical to DCQ3 at the same leaf_size.
+- If the FP scheduler is still often full, either GCC didn't interleave
+  the chains (visible in the assembly) or 4 chains aren't enough to hide
+  the FMA latency.
+
+#### Design
+
+Stage A: interleave several c vectors (tackles the FMA chain). Each loop
+step covers M consecutive c vectors, and the FMAs are issued row by row
+across the M accumulators:
+
+```
+for each step u (stride 8*M):
+    for r in 0..7:                 # rows, ascending, as now
+        for m in 0..M-1:           # M independent accumulators
+            C[m] += a_r * p_r[u + 8m]
+tail (vectors left over when not a multiple of M): the existing 1-vector loop
+```
+
+- Order is unchanged. Each C[m] still gets rows 0..7 in order. The
+  instruction stream now alternates between M independent chains,
+  instead of running 8 dependent FMAs back to back.
+- Registers: 8 broadcast a values plus M accumulators; M = 4 uses 12 of
+  the 16 ymm registers, provided GCC folds each b window into its FMA as
+  a memory operand (in today's loop, the accumulator register itself
+  receives the first b load, so no separate temporary appears; the
+  assembly will settle it). Loads stay at 9 per 8 FMAs.
+
+Writing it in C with BPM_ACC (no intrinsics):
+- Write each step as an inner 8-lane loop whose body lists the BPM_ACC
+  statements in the interleaved (r, m) order, for example
+  `BPM_ACC(c, comp, k0+u+8*m+l, a_r * p_r[u+8*m+l])`.
+- The compiler isn't guaranteed to cooperate. GCC must vectorize the
+  lane loop, keep the statement order, hold each C[m] in a register
+  across its updates, and (for Stage B) merge the shared window loads.
+- So check the assembly after every change; PA3's BKQ5 unroll came out
+  as chains run one after another.
+- The checking build runs the same loop structure in scalar form, so the
+  gate still tests the real control flow.
+
+Implementation choices (Stage A, user's go-ahead to implement):
+- `04-DCQ4/` copied from `04-DCQ3` (Makefile, run.sh, kernel; variant
+  name DCQ4). Only the leaf's fused loop changed; recursion, split rules,
+  copies of b, leftover rows and `no-associative-math` are DCQ3's.
+- M = 4, fixed (`#define M 4`); no new tune knob.
+- Main loop: u steps by 8 * M = 32; inside, an 8-lane loop over l whose
+  body is 8 `ROW_M(a_r, p_r)` macro calls, r = 0..7 in order, each
+  expanding to 4 `BPM_ACC` statements for m = 0..3, i.e. the interleaved
+  (r, m) order:
+  `BPM_ACC(c, comp, k0 + u + 8m + l, a_r * p_r[u + 8m + l])`.
+- Tail: DCQ3's 1-vector loop runs the remaining u (fewer than M vectors:
+  up to 3 when tlen is not a multiple of 32, or when ulen is clamped by
+  climit at the end of c).
+
+Later, separate variant: Stage B, rows 8 apart share a b window (fewer
+loads).
+- Row r at c vector m reads window p_r[u+8m], and row r+8 at vector m+1
+  reads exactly the same window. So make each group R rows instead of 8
+  (8 < R <= about 12, still in ascending order).
+- Within a step: rows 8..R-1 at vectors m >= 1 reuse the window that row
+  r-8 loaded for vector m-1 in the same step. It's the same address in
+  the same iteration, so the compiler can merge the two loads, but only
+  if GCC keeps that register live, which only the assembly can show.
+- At m = 0: the shared window belongs to the previous step. Reloading it
+  is simplest; carrying it in a register also works.
+- Live ranges: with rows in the outer loop, the window that row r loads
+  for vector m is used again only at row r+8 for vector m+1, so rows
+  0..R-9 each keep M-1 windows live across most of the step:
+  ymm ~ R (broadcasts) + M (accumulators) + (R-8)(M-1) (carried windows).
+
+  | R  | M | registers                              | loads per FMA |
+  |---:|--:|----------------------------------------|--------------:|
+  | 10 | 3 | 17: over the limit, so reloads or spills | -           |
+  | 10 | 2 | 14                                     | 1.00          |
+  | 9  | 3 | 14                                     | 1.04          |
+
+- Reordering doesn't escape this. Running (r+8, m+1) right after (r, m)
+  would need C[m+1] to be 8 rows ahead of C[m], which removes most of
+  Stage A's interleaving. The core trade-off: window reuse costs either
+  registers or interleaving.
+- Limit: fusing two whole 8-row groups would need about 25 registers
+  (16 broadcasts, 8 carried windows, at least 1 accumulator), and AVX2
+  FMA can't take a broadcast directly from memory. So more window reuse
+  means fewer interleaved chains.
+- Side changes:
+  - split_a has to round to a multiple of R, otherwise every leaf gets
+    leftover scalar rows.
+  - The b copies need at least R-1 leading zeros.
+  - The trapezoid gets R-8 extra zero products per row.
+  - The overrun into c stays at 7 elements or fewer (the loop range is
+    still rounded up to a multiple of 8), as in DCQ3 now. It matters
+    only for a future parallel variant that uses DCQ3's leaf, as in
+    BKP5.1; DCP5 still uses DCQ2's plain leaf and has no overrun.
+
+#### Implementation
+
+`04-DCQ4/` (Makefile and run.sh copied from `04-DCQ3`, variant name
+`DCQ4`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (gate tune leaf_size=64; no OpenMP code, so the
+parallel check runs the same sequential kernel). The checking build is
+scalar (Kahan `BPM_ACC`), so the gate tests the loop structure and tail
+handling, not the vectorized code or its instruction order. Assembly not
+yet inspected.
+
+#### Experiment
+
+Same as DCQ3.1 + DCQ3.2: sequential baseline at the default
+(leaf_size=1024), recorded as DCQ4's T(seq) for 100000x100000, then the
+same leaf-size sweep, 1 thread, 7 reps.
+
+```
+./sweep.sh --variant-dir 04-DCQ4 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCQ4 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --tune leaf_size=16,32,64,96,128,256,512,1024,2048,4096,8192,16384 \
+    --name 2026.11.01.002_leaf_sweep_100000x100000
+.venv/bin/python plot.py --csv 04-DCQ4/results/2026.11.01.002_leaf_sweep_100000x100000.csv \
+    --tpp-per-core 35.2 --topic LeafSizeSweep100000x100000 \
+    --title "DCQ4 (BKQ7 tile leaf, Stage A M=4 interleave) leaf size sweep, 100000x100000, 1 core"
+```
+
+Gate passed inside both sweeps. The other user's python job (one thread
+at ~90% CPU, seen on cores 4 and 5, not pinned) was running, as for
+DCQ3.1/3.2; the timing core is 16. Load average 2.5 before, 3.1 after.
+No perf counters and no assembly inspection in this run.
+
+#### Results
+
+Baseline (leaf_size=1024): median of 7 0.6912 s, **28.94 GF/s (82.2%
+TPP)**, reps 0.6906-0.6921 s (within 0.2%); DCQ3.1: 0.7864 s, 25.43 GF/s
+(72.3%).
+
+Leaf sweep, median of 7. "TPP-relative cycles/FMA" is 1 / (fraction of
+TPP), i.e. cycles per vector FMA if TPP is 1 vector FMA per cycle at the
+TPP clock; derived from time, not measured with counters (DCQ3.4
+measured 1.378 for DCQ3 at 1024).
+
+| leaf_size | time (s) | GF/s  | % TPP | DCQ3 % TPP | DCQ4 / DCQ3 | TPP-rel. cycles/FMA | rep spread |
+|----------:|---------:|------:|------:|-----------:|------------:|--------------------:|-----------:|
+| 16        | 3.245    | 6.16  | 17.5  | 19.3       | 0.907       | 5.71                | 1.6%       |
+| 32        | 1.912    | 10.46 | 29.7  | 31.3       | 0.951       | 3.36                | 0.7%       |
+| 64        | 1.138    | 17.58 | 49.9  | 53.5       | 0.934       | 2.00                | 0.3%       |
+| 96        | 0.853    | 23.44 | 66.6  | 61.4       | 1.084       | 1.50                | 0.2%       |
+| 128       | 0.829    | 24.12 | 68.5  | 63.0       | 1.088       | 1.46                | 0.2%       |
+| 256       | 0.737    | 27.15 | 77.1  | 68.8       | 1.122       | 1.30                | 0.2%       |
+| 512       | 0.706    | 28.35 | 80.5  | 71.5       | 1.126       | 1.24                | 0.2%       |
+| 1024      | 0.692    | **28.91** | **82.1** | 72.3    | **1.137**   | 1.22                | 0.2%       |
+| 2048      | 0.780    | 25.66 | 72.9  | 70.4       | 1.035       | 1.37                | 0.4%       |
+| 4096      | 0.960    | 20.84 | 59.2  | 71.6       | 0.827       | 1.69                | 0.8%       |
+| 8192      | 0.954    | 20.97 | 59.6  | 72.1       | 0.827       | 1.68                | 1.9%       |
+| 16384     | 0.964    | 20.74 | 58.9  | 72.2       | 0.816       | 1.70                | 0.6%       |
+
+- Best: 28.91 GF/s (82.1% TPP) at leaf_size=1024, 1.14x DCQ3 at the
+  same leaf_size and 1.14x BKQ7's 25.40 GF/s; the best single-core rate
+  so far. The baseline run agrees (0.6912 vs 0.6916 s).
+- Against the Hypothesis's 1.13-1.15 cycles/FMA: the TPP-relative value
+  at 1024 is 1.22 (82%), between DCQ3's 1.378 and the predicted range.
+- DCQ4 is faster than DCQ3 from 96 to 1024, by 8-14%, most at 512-1024,
+  and by 3.5% at 2048.
+- Surprise: from 4096 up, DCQ4 is 17-18% slower than DCQ3 (59% vs ~72%
+  TPP), a flat level from 4096 to 16384; DCQ3 had no such drop. 2048
+  sits between (72.9%, still above DCQ3's 70.4% dip).
+- Below 96 DCQ4 is also slower than DCQ3 (5-9%).
+- Rep spread <= 0.8% except leaf_size=16 (1.6%) and 8192 (1.9%).
+- Not checked here: the Hypothesis's FP-scheduler share and load µops
+  per FMA (need counters), bitwise-identical output to DCQ3 (the sweep
+  does not compare outputs), and whether GCC interleaved the chains
+  (assembly).
+
+Plot: `04-DCQ4/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
 
 #### Conclusion
 
