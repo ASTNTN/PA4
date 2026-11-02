@@ -410,8 +410,87 @@ overlap LL, HH and each other. LL and HH write disjoint ranges.
 
 #### Hypothesis
 
-(To be stated by the student; per PA4.md, including the work/span
-analysis and predicted speedup.)
+Work/span analysis (student), done before any timed run as PA4.md
+requires. Approximation: $N_A = N_B = N$. Unit of time: one multiply-add,
+so a sequential $N \times N$ sub-multiply costs $N^2$.
+
+##### Work and span: sequential (DCQ2)
+
+$$
+\begin{aligned}
+W_s(N) &= 4\,W_s(N/2) + O(1) = \Theta(N^2) \\
+S_s(N) &= 4\,S_s(N/2) + O(1) = \Theta(N^2)
+\end{aligned}
+$$
+
+##### Work and span: parallel (DCP2), no cutoff
+
+LL and HH recurse in parallel; LH and HL are sequential DCQ2 calls.
+
+$$
+\begin{aligned}
+W_p(N) &= 2\,W_p(N/2) + 2\,W_s(N/2) + O(1) \\
+       &= 2\,W_p(N/2) + 2\,\Theta(N^2/4) + O(1) = \Theta(N^2) \\
+S_p(N) &= S_p(N/2) + 2\,S_s(N/2) + O(1) \\
+       &= S_p(N/2) + 2\,\Theta(N^2/4) + O(1) = \Theta(N^2)
+\end{aligned}
+$$
+
+- The work is unchanged from the sequential version (discounting
+  parallelization overhead).
+- The span has the same order as the work, $\Theta(N^2)$, so the
+  parallelism is $\Theta(1)$: despite the parallelization, the span has
+  the same asymptotic complexity as the serial implementation.
+
+##### Span with a depth cutoff K
+
+At depth $K$ the algorithm stops spawning tasks and runs the remaining
+sub-problem sequentially:
+
+$$
+S_K(N) =
+\begin{cases}
+N^2, & K = 0 \\
+S_{K-1}(N/2) + N^2/2, & K > 0
+\end{cases}
+$$
+
+$$
+\begin{aligned}
+S_K(N) &= \frac{N^2}{2} \sum_{i=0}^{K-1} 4^{-i} + \frac{N^2}{4^K}
+        = N^2 \left( \frac{2}{3} + \frac{1}{3 \cdot 4^K} \right) \\
+\lim_{K \to \infty} S_K(N) &= \frac{2N^2}{3}
+\qquad\Rightarrow\qquad
+\lim_{K \to \infty} \frac{W_p}{S_K} = \frac{3}{2} = 1.5
+\end{aligned}
+$$
+
+The speedup is capped at 1.5, no matter how many threads are used.
+
+For our test cases where $N = 100000$ and the leaf size cuts subtasking at 4096, the tree has a depth $K = 5$. $\frac{S_4(N)}{N^2} = 0.6680$, so $\frac{W_p}{S_4} = 1.497$.
+
+##### Prediction
+
+The speedup curve will approach 1.5 asymptotically as the thread count
+increases.
+
+Model: LL and HH each get half of the $p$ threads, so each subtree runs
+on its own thread group. $T_p$ then follows the same recurrence as
+$S_K$, with $K = \log_2 p$, since each split halves the thread count:
+
+$$
+\begin{aligned}
+T_1(N) &= N^2 \\
+T_p(N) &= T_{p/2}(N/2) + N^2/2 \\
+\Rightarrow\quad \frac{T_p}{T_1} &= \frac{2}{3} + \frac{1}{3p^2} \\
+\Rightarrow\quad \text{speedup}(p) &= \frac{3p^2}{2p^2 + 1}
+\qquad (p \text{ a power of 2},\ p \le 2^K)
+\end{aligned}
+$$
+
+| p       | 1    | 2    | 4    | 8    | 16   |
+|:-------:|:----:|:----:|:----:|:----:|:----:|
+| speedup | 1.00 | 1.33 | 1.45 | 1.49 | 1.50 |
 
 #### Design
 
@@ -454,74 +533,76 @@ oracle 42/42 and gold 14/14, on both `PolyMult.check` and
 default 16 threads). One gate run; a race that the gate happens not to
 expose in one run cannot be ruled out by a single pass.
 
-#### Work-Span Analysis
+#### Experiment
 
-Let's approximate $N_A = N_B = N$.
+Settings as DCP1.1 (user gave the go-ahead without specifying them):
+DCP2's own sequential baseline, then a 1-16 thread sweep at the defaults
+(leaf_size=4096, depth=5).
 
-The sequential algorithm:
+```
+./sweep.sh --variant-dir 04-DCP2 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCP2 --dA 100000 --dB 100000 --threads 1:16:1 --reps 5 \
+    --name 2026.11.01.002_threads_100000x100000
+.venv/bin/python plot.py --csv 04-DCP2/results/2026.11.01.002_threads_100000x100000.csv \
+    --tpp-per-core 35.2 --topic ThreadSweep100000x100000 \
+    --title "DCP2 (tasks, LL || HH, taskwait, LH/HL sequential, leaf 4096, depth 5), 100000x100000"
+```
 
-$$
-\begin{aligned}
-W_s(n) &= 4 W_s(\frac{n}{2}) + O(1) \\
-W_s(n) &= \Theta(n^2) \\
-\end{aligned}
-$$
+Gate passed in both sweeps (a second and third passing run of
+`PolyMult.check-par`, after the one in Implementation). Load average 1.1
+before (15-minute average 24.4, from earlier load), 1.9 after the thread
+sweep; no other user's jobs seen.
 
-$$
-\begin{aligned}
-S_s(n) &= 4 S_s(\frac{n}{2}) + O(1) \\
-S_s(n) &= \Theta(n^2) \\
-\end{aligned}
-$$
+Recorded T(seq): 1.5107 s (13.24 GF/s), the same as DCQ2's 1.5107 s,
+although DCP2's sequential binary runs the quadrants in a different order
+(LL, HH, LH, HL) above the cutoff. The thread sweep's T(seq) is this own
+entry (`seq_time_source: min of 3: own`).
 
-The parallel algorithm:
+#### Results
 
-$$
-\begin{aligned}
-W_p(n) &= 2 W_p(\frac{n}{2}) + 2 W_s(\frac{n}{2}) + O(1) \\
-W_p(n) &= 2 W_p(\frac{n}{2}) + 2 \Theta(\frac{n^2}{4}) + O(1) \\
-W_p(n) &= \Theta(n^2) \\
-\end{aligned}
-$$
+Median of 5. Speedup vs T(seq) = 1.5107 s; %TPP = GF/s / (35.2 x t);
+"predicted" is the Hypothesis's 3p^2/(2p^2+1), given for powers of 2
+only:
 
-The work does not change between the sequential and parallel implementations, discounting parallelization overhead.
+| t  | time (s) | GF/s | speedup | predicted | % TPP | rep spread |
+|---:|---------:|-----:|--------:|----------:|------:|-----------:|
+| 1  | 1.5112   | 13.2 | 1.00    | 1.00      | 37.6  | 0.0%       |
+| 2  | 1.1347   | 17.6 | 1.33    | 1.33      | 25.0  | 0.2%       |
+| 3  | 1.1357   | 17.6 | 1.33    |           | 16.7  | 0.5%       |
+| 4  | 1.1344   | 17.6 | 1.33    | 1.45      | 12.5  | 1.9%       |
+| 5  | 1.0396   | 19.2 | 1.45    |           | 10.9  | 7.1%       |
+| 6  | 1.0406   | 19.2 | 1.45    |           | 9.1   | 4.5%       |
+| 7  | 1.0391   | 19.2 | 1.45    |           | 7.8   | 0.3%       |
+| 8  | 1.0390   | 19.2 | 1.45    | 1.49      | 6.8   | 0.8%       |
+| 9  | 1.0333   | 19.4 | 1.46    |           | 6.1   | 1.2%       |
+| 10 | 1.0332   | 19.4 | 1.46    |           | 5.5   | 0.2%       |
+| 11 | 1.0258   | 19.5 | 1.47    |           | 5.0   | 1.3%       |
+| 12 | 1.0211   | 19.6 | 1.48    |           | 4.6   | 0.9%       |
+| 13 | 1.0213   | 19.6 | 1.48    |           | 4.3   | 0.6%       |
+| 14 | 1.0184   | 19.6 | 1.48    |           | 4.0   | 0.8%       |
+| 15 | 1.0172   | 19.7 | 1.49    |           | 3.7   | 0.3%       |
+| 16 | 1.0170   | 19.7 | **1.49** | 1.50     | 3.5   | 0.3%       |
 
-$$
-\begin{aligned}
-S_p(n) &= S_p(\frac{n}{2}) + 2 S_s(\frac{n}{2}) + O(1) \\
-S_p(n) &= S_p(\frac{n}{2}) + 2 \Theta(\frac{n}{4}) + O(1) \\
-S_p(n) &= \Theta(n^2) \\
-\end{aligned}
-$$
+- Speedup 1.49x at 16 threads (19.7 GF/s), against the predicted 1.50
+  (the Hypothesis's cap).
+- The curve is a staircase, not a smooth approach: flat at 1.33 for 2-4
+  threads, a step to 1.45 at 5, flat at 1.45 for 5-8, then a slow rise
+  from 1.46 to 1.49 over 9-16.
+- Surprise: at 4 threads the measured speedup is 1.33 (same as 2 and 3
+  threads), against the predicted 1.45; the 1.45 appears only at 5
+  threads. At 2 and 16 threads the measurement matches the prediction.
+- Rep spread <= 1.9% except t=5 (7.1%) and t=6 (4.5%), each from one
+  slow first rep (1.113 s and 1.086 s, near the 4-thread level); the
+  medians are unaffected. At t=4 the first rep was the fast one (1.114 s
+  vs ~1.134 s for the others).
+- 1 thread of the OpenMP build matches the sequential binary (1.5112 vs
+  1.5107 s).
+- Against DCP1.1 at 16 threads: 1.017 s vs 0.100 s (19.7 vs 199.2
+  GF/s).
 
-Despite the parallelization, this algorithm has the same asmptotic complexity as the serial implementation.
+Plot: `04-DCP2/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
-At depth $K$, the algorithm stops spawning tasks and executes the remaining subproblems sequentially.
+#### Conclusion
 
-The span recurrence becomes
-
-$$
-S_K(N)=
-\begin{cases}
-N^2, & K=0 \\
-S_{K-1}(N/2)+N^2/2, & K>0 \\
-\end{cases}
-$$
-
-Solving:
-$$
-\begin{aligned}
-S_K(N) &= \frac{N^2}{2} \sum_{i=0}^{K-1} 4^{-i} + \frac{N^2}{4^K} \\
-&= N^2 (\frac{2}{3} + \frac{1}{3 \cdot 4^K}) \\
-\end{aligned}
-$$
-
-$$
-\lim_{K \rightarrow \infty} S_K(N) = \frac{2 N^2}{3} \\
-$$
-
-$$
-\frac{W_p}{S_p} = 3/2 = 1.5
-$$
-
-We are capped at a speedup of 1.5, no matter how many threads we use. 
+(To be stated by the student.)
