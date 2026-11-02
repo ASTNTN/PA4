@@ -1810,6 +1810,38 @@ measured 1.378 for DCQ3 at 1024).
 
 Plot: `04-DCQ4/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
 
+#### Assembly (timed build, inspected after the sweep)
+
+```
+objdump -d --no-show-raw-insn -M intel --disassemble=leaf_tile \
+    04-DCQ{3,4,5}/bin/PolyMult.time > 04-DCQ{3,4,5}/results/asm_leaf_tile_time.s
+```
+(one command per variant; `-O3 -march=native`, the timed build that the
+sweeps ran; `leaf_tile` is not inlined.)
+
+Main loop of `leaf_tile` (one step = 4 c vectors, u stride 32):
+- 8 `vbroadcastss` of a_0..a_7 hoisted out of the loop, held in ymm1-8;
+  4 accumulators (ymm0, ymm9-11): 12 ymm registers, no spills in the
+  loop.
+- 32 `vfmadd` per step, every b window folded in as a memory operand;
+  the first row loads its window with `vmovups` into the accumulator
+  register and takes c as the memory operand (`vfmadd213ps acc, a0,
+  [c]`), so no separate c load and no temporary register.
+- Order: row by row, the 4 accumulators inside each row, as designed
+  (row 6 issues its 4 FMAs in the order m = 1, 2, 3, 0; the chains are
+  independent, so each c vector's row order is unchanged).
+- Per step: 36 loads (32 b + 4 c), 4 stores, 32 FMAs: 9 loads per 8
+  FMAs, as the Design expected.
+- Stage A was implemented by GCC as intended: 4 independent FMA chains
+  of 8, interleaved in program order.
+- Compared with DCQ3 (`04-DCQ3/results/asm_leaf_tile_time.s`): one
+  accumulator, 8 dependent `vfmadd` per step, 9 loads.
+- The 4 `[rsp+...]` ymm references in DCQ4's `leaf_tile` are
+  `vbroadcastss` reloads of spilled a values outside the main loop (tail
+  path), not in the hot loop.
+- The code is the same at every leaf_size, so the drop from 4096 up
+  (59% TPP) is not a code-generation difference between leaf sizes.
+
 #### Conclusion
 
 (To be stated by the student.)
@@ -1942,6 +1974,38 @@ of TPP; derived from time, not counters):
   interleaved (assembly); loads and stall shares (counters).
 
 Plot: `04-DCQ5/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
+
+#### Assembly (timed build, inspected after the sweep)
+
+```
+objdump -d --no-show-raw-insn -M intel --disassemble=leaf_tile \
+    04-DCQ{3,4,5}/bin/PolyMult.time > 04-DCQ{3,4,5}/results/asm_leaf_tile_time.s
+```
+(one command per variant; `-O3 -march=native`, the timed build that the
+sweeps ran; `leaf_tile` is not inlined.)
+
+Main loop of `leaf_tile` (one step = 2 c vectors, u stride 16):
+- 10 `vbroadcastss` of a_0..a_9 hoisted, in ymm2-11; 2 accumulators
+  (ymm0, ymm1): 12 ymm registers, no spills in the loop.
+- 20 `vfmadd` per step, row by row, the 2 accumulators inside each row:
+  the interleaving is as designed (2 chains of 10).
+- The shared loads were not merged. Row 0's m = 0 window is loaded with
+  `vmovups ymm1, [r15+rax]` into the accumulator itself and consumed by
+  the first FMA; row 8 at m = 1 then reads the same address again as a
+  memory operand (`vfmadd231ps ymm0, ymm3, [r15+rax]`), and row 9 at
+  m = 1 reads `[r8+rax]` again (row 1's m = 0 window). Rows 8, 9 at
+  m = 0 read the previous step's windows (`[r15+rax-0x20]`,
+  `[r8+rax-0x20]`), as designed.
+- Per step: 22 loads (20 b + 2 c), 2 stores, 20 FMAs: 1.10 loads per
+  FMA, against the Design's 1.00 and DCQ4's 1.125.
+- Against DCQ4: 2 independent chains per step instead of 4, each 10
+  FMAs long instead of 8.
+- 4 ymm registers were free in the loop (12 of 16 used), so the reload
+  was not forced by register pressure.
+- The tail loop (one leftover vector per group) is vectorized
+  differently, with a b window spilled to and reloaded from the stack
+  (`vmovaps [rsp-0x78], ymm0`) and pointer reloads from the stack; it
+  handles at most one vector per 10-row group (not measured how often).
 
 #### Conclusion
 
