@@ -605,4 +605,192 @@ Plot: `04-DCP2/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 
 #### Conclusion
 
+The 1.5 bound holds at large p, but the curve is under expectation at lower p.
+
+## 04-DCP3: DCP2 + tasks for LH and HL, taskwait-separated (parallel)
+
+### DCP3.1: LL || HH, taskwait, task LH, taskwait, task HL, taskwait
+
+#### Introduction
+
+DCP2.1 ran LH and HL as sequential DCQ2 on the calling thread and reached
+1.49x at 16 threads, with a staircase curve (1.33 for 2-4 threads, 1.45
+for 5-8). DCP3 runs LH and HL as tasks that recurse with the same scheme,
+still without a reduction, with a taskwait after each so that no two
+overlapping quadrants run at once.
+
+#### Hypothesis
+
+Work/span analysis (student), done before any timed run as PA4.md
+requires. Same approximation and unit as DCP2.1: $N_A = N_B = N$, one
+multiply-add per unit of time.
+
+##### Work and span: parallel (DCP3), no cutoff
+
+LL and HH recurse in parallel; LH and HL are recursive dcp tasks, each
+running alone between taskwaits.
+
+$$
+\begin{aligned}
+W_p(N) &= 4\,W_p(N/2) + O(1) = \Theta(N^2) \\
+S_p(N) &= S_p(N/2) + 2\,S_p(N/2) + O(1) \\
+       &= 3\,S_p(N/2) + O(1) = \Theta(N^{\log_2 3})
+\end{aligned}
+$$
+
+- The work is unchanged from the sequential version (discounting
+  parallelization overhead).
+- The span has a lower order than the work:
+  $W_p/S_p = \Theta(N^2)/\Theta(N^{\log_2 3}) = \Theta(N^{2-\log_2 3})$.
+
+##### Span with a depth cutoff K
+
+At depth $K$ the algorithm stops spawning tasks and runs the remaining
+sub-problem, of length $L = N/2^K$, sequentially:
+
+$$
+\begin{aligned}
+S_K(N) &= 3^K \left( \frac{N}{2^K} \right)^2 = N^2 \left( \frac{3}{4} \right)^K \\
+\frac{W}{S_K} &= \left( \frac{4}{3} \right)^K
+               = \left( \frac{N}{L} \right)^{2-\log_2 3}
+               \approx \left( \frac{N}{L} \right)^{0.415}
+\end{aligned}
+$$
+
+This speedup grows with depth.
+
+At 100000 with leaf_size=4096, the recursion stops at $K = 5$ (leaves
+about 3125 long), which gives $W/S = 4.2$. Going deeper needs both a
+smaller leaf_size and depth $\ge K$.
+
+##### Prediction
+
+Speedup will grow sublinearly with thread count, approaching 4.2x at 16
+threads. Observed speedup will be less than the ideal speedup listed
+below, due to overhead.
+
+Model: in phase A, LL and HH get $p/2$ threads each; in phases B (LH)
+and C (HL), the single child gets all $p$ threads. No overhead and a
+constant leaf rate are assumed.
+
+| K (leaf_size) | W/S  | p=2  | p=4  | p=8  | p=16  |
+|:-------------:|-----:|-----:|-----:|-----:|------:|
+| 5 (4096)      | 4.2  | 1.94 | 3.20 | 4.00 | 4.20  |
+| 6 (2048)      | 5.6  | 1.97 | 3.51 | 4.92 | 5.51  |
+| 7 (1024)      | 7.5  | 1.98 | 3.71 | 5.79 | 7.06  |
+| 8 (512)       | 10.0 | 1.99 | 3.84 | 6.50 | 8.77  |
+| 9 (256)       | 13.3 | 2.00 | 3.91 | 7.04 | 10.48 |
+| 10 (128)      | 17.8 | 2.00 | 3.95 | 7.41 | 12.01 |
+
+#### Design
+
+Decisions (user): LH and HL as tasks, separated by another taskwait; each
+runs the recursive dcp (not sequential dcq); new directory `04-DCP3`.
+
+```
+dcp(node, d):
+    if d >= depth or node is a leaf: dcq(node)            # sequential DCQ2
+    else:
+        task dcp(LL, d+1)
+        task dcp(HH, d+1)
+        taskwait
+        task dcp(LH, d+1)
+        taskwait
+        task dcp(HL, d+1)
+        taskwait
+top: parallel -> single -> dcp(whole, 0)
+```
+
+- All writes go straight into the shared c (and comp in the checking
+  build, at the same offsets).
+- LH and HL overlap LL, HH and each other, so each runs alone, after the
+  previous taskwait; within each, the same LL || HH, LH, HL ordering
+  applies recursively down to the cutoff.
+- Each taskwait waits only for the direct children; each child returns
+  only after its own last taskwait.
+- Without -fopenmp: quadrant order LL, HH, LH, HL above the cutoff, as in
+  DCP2.
+- Copied from DCP2 (Makefile, run.sh, kernel); only the LH/HL calls
+  changed. Defaults unchanged: leaf_size 4096, depth 5.
+
+#### Implementation
+
+`04-DCP3/` (Makefile and run.sh copied from `04-DCP2`, variant name
+`DCP3`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (leaf_size=64, depth=5; parallel check at OpenMP's
+default 16 threads). One gate run; a race that the gate happens not to
+expose in one run cannot be ruled out by a single pass.
+
+#### Experiment
+
+Settings as DCP2.1: DCP3's own sequential baseline, then a 1-16 thread
+sweep at the defaults (leaf_size=4096, depth=5, so K = 5).
+
+```
+./sweep.sh --variant-dir 04-DCP3 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCP3 --dA 100000 --dB 100000 --threads 1:16:1 --reps 5 \
+    --name 2026.11.01.002_threads_100000x100000
+.venv/bin/python plot.py --csv 04-DCP3/results/2026.11.01.002_threads_100000x100000.csv \
+    --tpp-per-core 35.2 --topic ThreadSweep100000x100000 \
+    --title "DCP3 (tasks, LL || HH, then task LH, then task HL, taskwaits, leaf 4096, depth 5), 100000x100000"
+```
+
+Gate passed in both sweeps. Machine not quiet: another user's python job
+(one thread at ~85-95% CPU, plus data-worker processes) ran throughout;
+its busy thread was seen on cores 5 and 6, outside the 16-31 timing mask,
+but it was not pinned (affinity 0-31). The user chose to run anyway and
+note it. Load average 2.1 before, 6.3 after the thread sweep.
+
+Recorded T(seq): 1.5106 s (13.24 GF/s), matching DCP2's 1.5107 s and
+DCQ2's 1.5107 s (the same sequential code), so the baseline shows no
+sign of the other job. The thread sweep's T(seq) is this own entry
+(`seq_time_source: min of 3: own`).
+
+#### Results
+
+Median of 5. Speedup vs T(seq) = 1.5106 s; %TPP = GF/s / (35.2 x t);
+"model" is the Hypothesis's K = 5 row (powers of 2 only):
+
+| t  | time (s) | GF/s | speedup | model | % TPP | rep spread |
+|---:|---------:|-----:|--------:|------:|------:|-----------:|
+| 1  | 1.5107   | 13.2 | 1.00    | 1.00  | 37.6  | 0.1%       |
+| 2  | 1.1340   | 17.6 | 1.33    | 1.94  | 25.1  | 0.1%       |
+| 3  | 0.9461   | 21.1 | 1.60    |       | 20.0  | 2.5%       |
+| 4  | 0.8284   | 24.1 | 1.82    | 3.20  | 17.1  | 1.4%       |
+| 5  | 0.6684   | 29.9 | 2.26    |       | 17.0  | 8.3%       |
+| 6  | 0.5748   | 34.8 | 2.63    |       | 16.5  | 7.2%       |
+| 7  | 0.5304   | 37.7 | 2.85    |       | 15.3  | 6.1%       |
+| 8  | 0.4991   | 40.1 | 3.03    | 4.00  | 14.2  | 4.6%       |
+| 9  | 0.4642   | 43.1 | 3.25    |       | 13.6  | 2.9%       |
+| 10 | 0.4423   | 45.2 | 3.42    |       | 12.8  | 5.4%       |
+| 11 | 0.4245   | 47.1 | 3.56    |       | 12.2  | 2.8%       |
+| 12 | 0.4103   | 48.7 | 3.68    |       | 11.5  | 1.6%       |
+| 13 | 0.4058   | 49.3 | 3.72    |       | 10.8  | 1.9%       |
+| 14 | 0.3993   | 50.1 | 3.78    |       | 10.2  | 0.8%       |
+| 15 | 0.3902   | 51.3 | 3.87    |       | 9.7   | 1.2%       |
+| 16 | 0.3846   | 52.0 | **3.93** | 4.20 | 9.2   | 1.2%       |
+
+Measured / model: 0.69 (t=2), 0.57 (t=4), 0.76 (t=8), 0.94 (t=16).
+
+- Speedup 3.93x at 16 threads (52.0 GF/s), against the model's 4.20
+  (= W/S at K = 5); 2.6x DCP2.1's 1.49x.
+- Unlike DCP2.1 (flat steps), the curve rises at every thread count and
+  flattens toward 16.
+- Surprise: at 2 threads the speedup is 1.33, against the model's 1.94,
+  and identical to DCP2.1's 2-thread value (1.1340 vs 1.1347 s), with
+  0.1% spread.
+- The model is furthest off at 4 threads (1.82 vs 3.20) and closest at
+  16 (3.93 vs 4.20).
+- Rep spread 4.6-8.3% for t=5-8 and 5.4% at t=10 (others <= 2.9%);
+  spread is in both directions, not one slow rep. The other user's job
+  was running; whether it contributed cannot be told from this data.
+- 1 thread of the OpenMP build matches the sequential binary (1.5107 vs
+  1.5106 s).
+
+Plot: `04-DCP3/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
+
+#### Conclusion
+
 (To be stated by the student.)
