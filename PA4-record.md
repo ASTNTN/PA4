@@ -1273,3 +1273,79 @@ Median of 7: 0.7864 s, **25.43 GF/s (72.3% TPP)**, reps 0.7862-0.7879 s
 # NEXT
 
 The experiment is a leaf-size sweep at 1 thread, plus the same perf counter groups as DCQ.3, compared against BKQ7.
+### DCQ3.2: leaf size sweep
+
+#### Introduction
+
+DCQ3.1 ran at 72.3% TPP at the default leaf_size=1024, matching BKQ7.
+DCQ.2's sweep of the OPQ-leaf DCQ had a plateau at leaf lengths
+~195-3125 and dropped above 4096; this sweep checks how DCQ3's BKQ7 leaf
+depends on leaf_size.
+
+#### Hypothesis
+
+(To be stated by the student.)
+
+#### Design / Experiment
+
+DCQ3.1 code unchanged. Same leaf-size list as DCQ.2, 1 thread, 7 reps:
+
+```
+./sweep.sh --variant-dir 04-DCQ3 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --tune leaf_size=16,32,64,96,128,256,512,1024,2048,4096,8192,16384 \
+    --name 2026.11.01.002_leaf_sweep_100000x100000
+.venv/bin/python plot.py --csv 04-DCQ3/results/2026.11.01.002_leaf_sweep_100000x100000.csv \
+    --tpp-per-core 35.2 --topic LeafSizeSweep100000x100000 \
+    --title "DCQ3 (BKQ7 tile leaf) leaf size sweep, 100000x100000, 1 core"
+```
+
+Gate passed inside the sweep. The other user's python job (one thread at
+~92% CPU, seen on cores 4 and 12, not pinned) was running; the timing
+core is 16. Load average 2.4 before, 3.1 after.
+
+#### Results
+
+Median of 7. Leaf counts and widths at 100001 coefficients are
+arithmetic from the split rules (b at nb/2 rounded down to 16, a at na/2
+rounded down to 8), not measured. Since the rounding makes the halves
+unequal, leaves at one leaf_size can come from different depths (e.g. at
+96, b leaves are 48-96 wide).
+
+| leaf_size | b leaves | b leaf width | a leaf height | time (s) | GF/s  | % TPP | DCQ.2 % TPP |
+|----------:|---------:|-------------:|--------------:|---------:|------:|------:|------------:|
+| 16        | 6251     | 8-16         | 8-16          | 2.941    | 6.80  | 19.3  | 5.9         |
+| 32        | 4097     | 16-32        | 16-32         | 1.818    | 11.00 | 31.3  | 11.3        |
+| 64        | 2049     | 32-64        | 48-57         | 1.063    | 18.82 | 53.5  | 20.8        |
+| 96        | 1130     | 48-96        | 48-96         | 0.925    | 21.62 | 61.4  | 20.8        |
+| 128       | 1024     | 96-113       | 96-105        | 0.902    | 22.18 | 63.0  | 30.6        |
+| 256       | 512      | 192-209      | 192-201       | 0.826    | 24.21 | 68.8  | 33.3        |
+| 512       | 256      | 384-401      | 384-393       | 0.795    | 25.17 | 71.5  | 34.3        |
+| 1024      | 128      | 768-785      | 776-785       | 0.786    | **25.44** | **72.3** | 32.7  |
+| 2048      | 64       | 1552-1569    | 1560-1569     | 0.807    | 24.78 | 70.4  | 33.8        |
+| 4096      | 32       | 3120-3137    | 3120-3129     | 0.794    | 25.19 | 71.6  | 34.4        |
+| 8192      | 16       | 6240-6257    | 6248-6257     | 0.789    | 25.36 | 72.1  | 25.4        |
+| 16384     | 8        | 12496-12513  | 12496-12505   | 0.787    | 25.43 | 72.2  | 26.1        |
+
+Rep spread <= 0.3% everywhere.
+
+- Plateau at 70.4-72.3% TPP from leaf_size 512 to 16384 (leaves ~390 to
+  ~12500 long), a 2.7% range. Best: 25.44 GF/s (72.3%) at 1024, the
+  default, with 16384 (25.43) and 8192 (25.36) within 0.3%.
+- A shallow dip at 2048 (70.4%), below both 1024 and 4096. (BKQ7.2 had a
+  ~2% dip at block size 1536-2048, not explained.)
+- Unlike DCQ.2, no drop above 4096: 8192 and 16384 stay at ~72%, where
+  DCQ's OPQ leaf fell to ~25-26%.
+- Below 512 the rate falls steadily: 68.8% at 256, 63.0% at 128, 53.5% at
+  64, 19.3% at 16.
+- 64 and 96 now differ (53.5% vs 61.4%); in DCQ.2 they were equal
+  (both ~49-long leaves). With DCQ3's rounded, independent splits,
+  leaf_size=96 stops splitting at a mix of depths (leaves 48-96).
+- Every leaf_size is faster than DCQ.2's at the same leaf_size, by 2.1x
+  to 3.3x (2.1x at DCQ.2's best, 4096).
+- The leaf_size=1024 point (0.7863 s) agrees with DCQ3.1's run (0.7864 s).
+
+Plot: `04-DCQ3/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
+
+#### Conclusion
+
+(To be stated by the student.)
