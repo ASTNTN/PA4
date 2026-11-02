@@ -1813,3 +1813,136 @@ Plot: `04-DCQ4/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
 #### Conclusion
 
 (To be stated by the student.)
+
+## 04-DCQ5: DCQ4 + Stage B, rows 8 apart share a b window (sequential)
+
+### DCQ5.1: R = 10 rows per group, M = 2 interleaved c vectors
+
+#### Introduction
+
+DCQ4.1 (Stage A, M = 4, R = 8) reached 82.1% TPP at leaf_size=1024,
+1.14x DCQ3, but fell to ~59% from leaf_size 4096 up. Stage B (DCQ4.1
+Design, "Later, separate variant") reduces loads per FMA by letting rows
+8 apart share a b window. The user chose to implement Stage B next.
+
+#### Hypothesis
+
+(To be stated by the student.)
+
+#### Design
+
+Decisions (user): Stage B with R = 10, M = 2 (DCQ4.1 Design table: 14 ymm
+registers, 1.00 loads per FMA); new directory `04-DCQ5`, copied from
+`04-DCQ4` (Stage A's step structure kept).
+
+```
+per 10-row group, per step u (stride 16):
+    for l in 0..7:                                   # lane loop
+        for r in 0..7:  C0 += a_r * p_r[u+l];     C1 += a_r * p_r[u+8+l]
+        r = 8:          C0 += a_8 * p_0[u-8+l];   C1 += a_8 * p_0[u+l]    # = row 0's m=0 window
+        r = 9:          C0 += a_9 * p_1[u-8+l];   C1 += a_9 * p_1[u+l]    # = row 1's m=0 window
+tail (one vector left, or ulen clamped): 1-vector loop, rows 0..9
+```
+
+- Rows 8, 9 have no pointers of their own: p_{r+8} = p_r - 8 (same copy,
+  since (r + 9) % 4 = (r + 1) % 4), so they are written as p_r[x - 8]. At
+  m = 1 this is the identical expression row r used at m = 0 in the same
+  step (`p0[u + l]`, `p1[u + l]`), which gives GCC the chance to merge the
+  loads; at m = 0 they reload the previous step's window
+  (`p0[u - 8 + l]`). (Claude's choice of how to express the sharing in C;
+  not discussed.)
+- Order: each c element gets rows 0..9 in ascending order;
+  `no-associative-math` kept.
+- Side changes for R = 10 (DCQ4.1 Design list):
+  - split_a: ha = na/2 rounded down to a multiple of 10 (fallback na/2
+    when na < 20).
+  - Leading zeros per segment LZ = 11 (>= R - 1 = 9; LZ % 4 == 3 keeps
+    p[r] = seg + s + LZ - r on a 16-byte boundary with s = (r + 1) % 4).
+  - Trapezoid u = 0 .. w + 8, rounded up to a multiple of 8 (2 more zero
+    products per row than R = 8).
+  - Segment size w + R + LZ + 9 = w + 30 floats, rounded up to 16.
+  - Overrun past a leaf's range of c stays <= 7 elements (clamped by
+    climit).
+- M = 2 and R = 10 fixed (`#define`); no new tune knob. Recursion, b
+  split rule, copies' spacing, leftover rows unchanged from DCQ3/DCQ4.
+- Written with `BPM_ACC` only. Whether GCC vectorizes the lane loop,
+  merges the shared loads and keeps 10 broadcasts + 2 accumulators in
+  registers is not guaranteed: assembly.
+
+#### Implementation
+
+`04-DCQ5/` (Makefile and run.sh copied from `04-DCQ4`, variant name
+`DCQ5`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (gate tune leaf_size=64; no OpenMP code, so the
+parallel check runs the same sequential kernel). The checking build is
+scalar (Kahan `BPM_ACC`), so the gate tests the loop structure, the
+p[r] - 8 reads for rows 8-9, the R = 10 split and the tail, not the
+vectorized code or its instruction order. Assembly not yet inspected.
+
+#### Experiment
+
+Same as DCQ4.1: sequential baseline at the default (leaf_size=1024),
+recorded as DCQ5's T(seq) for 100000x100000, then the same leaf-size
+sweep, 1 thread, 7 reps.
+
+```
+./sweep.sh --variant-dir 04-DCQ5 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCQ5 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --tune leaf_size=16,32,64,96,128,256,512,1024,2048,4096,8192,16384 \
+    --name 2026.11.01.002_leaf_sweep_100000x100000
+.venv/bin/python plot.py --csv 04-DCQ5/results/2026.11.01.002_leaf_sweep_100000x100000.csv \
+    --tpp-per-core 35.2 --topic LeafSizeSweep100000x100000 \
+    --title "DCQ5 (Stage B, R=10 M=2) leaf size sweep, 100000x100000, 1 core"
+```
+
+Gate passed inside both sweeps. Machine quieter than for DCQ3.1-DCQ4.1:
+the other user's python job was gone; 2 users logged in, only this
+session's processes using CPU (a `MainThread` at 1.6% seen on core 17
+after the sweep). Load average 0.7 before, 1.5 after. No perf counters
+and no assembly inspection in this run.
+
+#### Results
+
+Baseline (leaf_size=1024): median of 7 0.8073 s, 24.77 GF/s (70.4% TPP),
+reps within 0.15%.
+
+Leaf sweep, median of 7. TPP-relative cycles/FMA as in DCQ4.1 (1 / fraction
+of TPP; derived from time, not counters):
+
+| leaf_size | time (s) | GF/s  | % TPP | DCQ4 % TPP | DCQ3 % TPP | DCQ5 / DCQ4 | TPP-rel. cycles/FMA | rep spread |
+|----------:|---------:|------:|------:|-----------:|-----------:|------------:|--------------------:|-----------:|
+| 16        | 3.416    | 5.85  | 16.6  | 17.5       | 19.3       | 0.950       | 6.01                | 0.7%       |
+| 32        | 2.131    | 9.39  | 26.7  | 29.7       | 31.3       | 0.897       | 3.75                | 0.2%       |
+| 64        | 1.230    | 16.26 | 46.2  | 49.9       | 53.5       | 0.925       | 2.16                | 0.1%       |
+| 96        | 1.027    | 19.47 | 55.3  | 66.6       | 61.4       | 0.831       | 1.81                | 0.1%       |
+| 128       | 0.981    | 20.39 | 57.9  | 68.5       | 63.0       | 0.845       | 1.73                | 0.1%       |
+| 256       | 0.874    | 22.88 | 65.0  | 77.1       | 68.8       | 0.843       | 1.54                | 0.2%       |
+| 512       | 0.824    | 24.26 | 68.9  | 80.5       | 71.5       | 0.856       | 1.45                | 0.2%       |
+| 1024      | 0.806    | 24.80 | 70.5  | **82.1**   | 72.3       | 0.858       | 1.42                | 0.2%       |
+| 2048      | 0.817    | 24.47 | 69.5  | 72.9       | 70.4       | 0.954       | 1.44                | 0.1%       |
+| 4096      | 0.812    | 24.64 | 70.0  | 59.2       | 71.6       | 1.182       | 1.43                | 0.1%       |
+| 8192      | 0.805    | 24.84 | 70.6  | 59.6       | 72.1       | 1.184       | 1.42                | 0.2%       |
+| 16384     | 0.801    | **24.96** | **70.9** | 58.9  | 72.2       | 1.204       | 1.41                | 0.1%       |
+
+- Surprise: Stage B made the kernel slower. At leaf_size=1024, 70.5% TPP
+  against DCQ4's 82.1% (0.858x) and below DCQ3's 72.3%.
+- DCQ5 is below DCQ4 at every leaf_size up to 2048 (by 5-17%) and below
+  DCQ3 at every leaf_size (by 1-14%).
+- From 4096 up DCQ5 is 18-20% faster than DCQ4 and does not show DCQ4's
+  drop to ~59%; it sits ~1-2 points below DCQ3 there.
+- DCQ5's curve is nearly flat from 512 to 16384 (68.9-70.9% TPP), with
+  the best point at 16384 (70.9%).
+- Rep spread <= 0.7% everywhere.
+- The baseline run agrees with the sweep's 1024 point (0.8073 vs
+  0.8061 s).
+- Not known from this run: whether GCC merged the shared loads, how many
+  registers it used or whether it spilled, and whether the 2 chains are
+  interleaved (assembly); loads and stall shares (counters).
+
+Plot: `04-DCQ5/plots/2026.11.01.001.LeafSizeSweep100000x100000.xlsx`.
+
+#### Conclusion
+
+(To be stated by the student.)
