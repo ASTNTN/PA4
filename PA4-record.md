@@ -1007,3 +1007,146 @@ Plot: `04-DCP4/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
 #### Conclusion
 
 (To be stated by the student.)
+
+## 04-DCP5: DCP4 with the taskwait replaced by a taskgroup (parallel)
+
+### DCP5.1: taskgroup { task LL, HH inline }, LH and HL inline
+
+#### Introduction
+
+DCP4.1 kept the spawner busy (task LL, HH inline, taskwait, LH and HL
+inline) and reached only 1.78x at 16 threads, against the predicted 4.20
+and DCP3.1's 3.93. DCP5 replaces DCP4's taskwait with a taskgroup.
+
+#### Hypothesis
+
+Hypothesis
+
+H1, the critical path is fixed. The end of a taskgroup waits only for tasks created inside it and their descendants. So the taskgroups nested in the inline HH chain don't wait for the outer LL. That removes DCP4's false dependency, and the span returns to S = W·(3/4)^K. At depth 5 the cap is W/S = 4.21, against 1.79 for DCP4.
+
+H2, the spawning thread never sits idle. In every LL ∥ HH phase, the spawning thread runs HH itself. LH and HL are no longer lone tasks that another thread could take. If the 1.33x at 2 threads in DCP2 and DCP3 was the idle spawner, it should disappear.
+
+Prediction (the ideal model, depth 5):
+
+┌───────────────────────────────────────────────┬──────┬──────┬──────┬──────────┐
+│                    threads                    │  2   │  4   │  8   │    16    │
+├───────────────────────────────────────────────┼──────┼──────┼──────┼──────────┤
+│ ideal                                         │ 1.94 │ 3.20 │ 4.00 │ 4.20     │
+├───────────────────────────────────────────────┼──────┼──────┼──────┼──────────┤
+│ with per-core rate loss (DCP1 lost ~6% at 16) │ ~1.9 │ ~3.1 │ ~3.8 │ ~3.9–4.2 │
+└───────────────────────────────────────────────┴──────┴──────┴──────┴──────────┘
+
+Thread counts that aren't powers of 2 should land between t end of a taskgroup should be short, because LL and HH arealmost equal in size.
+
+The taskgroup will allow us to realize the gains expected in DCP4.
+
+#### Design
+
+Decision (user): replace the taskwait with a taskgroup. New directory
+`04-DCP5` (Claude's choice, following the convention of one directory
+per code change; not discussed).
+
+```
+dcp(node, d):
+    if d >= depth or node is a leaf: dcq(node)            # sequential DCQ2
+    else:
+        taskgroup {
+            task dcp(LL, d+1)
+            dcp(HH, d+1)                                  # inline
+        }                                                 # end: wait
+        dcp(LH, d+1)                                      # inline
+        dcp(HL, d+1)                                      # inline
+top: parallel -> single -> dcp(whole, 0)
+```
+
+- The taskgroup spans the LL task and the inline HH call, i.e. exactly
+  where DCP4's taskwait closed phase A.
+- OpenMP semantics: the end of a taskgroup waits for the tasks generated
+  inside that taskgroup region and all their descendants. A direct
+  call's own taskgroup is nested inside its caller's region; its end
+  waits only for the tasks generated inside the nested region, not for
+  tasks the caller generated earlier (e.g. not for the LL task while HH
+  runs inline). (DCP4's taskwait waited for all child tasks of the
+  current task.)
+- Without -fopenmp: quadrant order LL, HH, LH, HL, as in DCP2-DCP4.
+- Copied from DCP4 (Makefile, run.sh, kernel); only the taskwait changed.
+  Defaults unchanged: leaf_size 4096, depth 5.
+
+#### Implementation
+
+`04-DCP5/` (Makefile and run.sh copied from `04-DCP4`, variant name
+`DCP5`; kernel in `src/PolyMult.c`). Built with no warnings. Gate PASSED:
+oracle 42/42 and gold 14/14, on both `PolyMult.check` and
+`PolyMult.check-par` (leaf_size=64, depth=5; parallel check at OpenMP's
+default 16 threads). One gate run; a race that the gate happens not to
+expose in one run cannot be ruled out by a single pass.
+
+#### Experiment
+
+Settings as DCP4.1: DCP5's own sequential baseline, then a 1-16 thread
+sweep at the defaults (leaf_size=4096, depth=5, so K = 5).
+
+```
+./sweep.sh --variant-dir 04-DCP5 --dA 100000 --dB 100000 --threads 1 --reps 7 \
+    --name 2026.11.01.001_seq_100000x100000 --record-seq
+./sweep.sh --variant-dir 04-DCP5 --dA 100000 --dB 100000 --threads 1:16:1 --reps 5 \
+    --name 2026.11.01.002_threads_100000x100000
+.venv/bin/python plot.py --csv 04-DCP5/results/2026.11.01.002_threads_100000x100000.csv \
+    --tpp-per-core 35.2 --topic ThreadSweep100000x100000 \
+    --title "DCP5 (tasks, taskgroup{task LL + HH inline}, LH/HL inline, leaf 4096, depth 5), 100000x100000"
+```
+
+Gate passed in both sweeps. Same machine conditions as DCP3.1 and
+DCP4.1: the other user's python job (one thread at ~90% CPU, seen on
+cores 4 and 6, outside the 16-31 mask, not pinned) ran throughout; run
+and noted as before. Load average 2.0 before, 5.3 after the thread sweep.
+
+Recorded T(seq): 1.5107 s (13.24 GF/s), matching DCP3/DCP4 (same
+sequential code). The thread sweep's T(seq) is this own entry
+(`seq_time_source: min of 3: own`).
+
+#### Results
+
+Median of 5. Speedup vs T(seq) = 1.5107 s; %TPP = GF/s / (35.2 x t);
+"ideal model" is the DCP3.1 Hypothesis K = 5 row (powers of 2 only);
+"DCP3.1" and "DCP4.1" are their measured speedups:
+
+| t  | time (s) | GF/s | speedup | ideal model | DCP3.1 | DCP4.1 | % TPP | rep spread |
+|---:|---------:|-----:|--------:|------------:|-------:|-------:|------:|-----------:|
+| 1  | 1.5108   | 13.2 | 1.00    | 1.00        | 1.00   | 1.00   | 37.6  | 0.1%       |
+| 2  | 0.7800   | 25.6 | 1.94    | 1.94        | 1.33   | 1.33   | 36.4  | 0.1%       |
+| 3  | 0.6422   | 31.1 | 2.35    |             | 1.60   | 1.61   | 29.5  | 8.3%       |
+| 4  | 0.4901   | 40.8 | 3.08    | 3.20        | 1.82   | 1.67   | 29.0  | 2.9%       |
+| 5  | 0.4626   | 43.2 | 3.27    |             | 2.26   | 1.71   | 24.6  | 1.2%       |
+| 6  | 0.4360   | 45.9 | 3.47    |             | 2.63   | 1.74   | 21.7  | 1.4%       |
+| 7  | 0.4156   | 48.1 | 3.64    |             | 2.85   | 1.74   | 19.5  | 1.1%       |
+| 8  | 0.3918   | 51.0 | 3.86    | 4.00        | 3.03   | 1.76   | 18.1  | 1.1%       |
+| 9  | 0.3832   | 52.2 | 3.94    |             | 3.25   | 1.76   | 16.5  | 1.1%       |
+| 10 | 0.3801   | 52.6 | 3.97    |             | 3.42   | 1.77   | 14.9  | 0.7%       |
+| 11 | 0.3760   | 53.2 | 4.02    |             | 3.56   | 1.77   | 13.7  | 0.8%       |
+| 12 | 0.3714   | 53.8 | 4.07    |             | 3.68   | 1.78   | 12.7  | 1.0%       |
+| 13 | 0.3701   | 54.0 | 4.08    |             | 3.72   | 1.77   | 11.8  | 0.5%       |
+| 14 | 0.3698   | 54.1 | 4.09    |             | 3.78   | 1.78   | 11.0  | 0.4%       |
+| 15 | 0.3685   | 54.3 | 4.10    |             | 3.87   | 1.78   | 10.3  | 0.4%       |
+| 16 | 0.3645   | 54.9 | **4.15** | 4.20       | 3.93   | 1.78   | 9.7   | 0.4%       |
+
+Measured / ideal model: 1.00 (t=2), 0.96 (t=4), 0.97 (t=8), 0.99
+(t=16).
+
+- Speedup 4.15x at 16 threads (54.9 GF/s), against the ideal model's
+  4.20 (= W/S at K = 5); 1.06x DCP3.1's 3.93x and 2.3x DCP4.1's 1.78x.
+- At 2 threads 1.94x (0.7800 s), matching the ideal model's 1.94; the
+  first variant since DCP2 to move off 1.33x at 2 threads.
+- Measured is within 4% of the ideal model at every power of 2.
+- The curve rises at every thread count and flattens toward the W/S cap
+  (3.86 at 8, 4.15 at 16).
+- Rep spread <= 2.9% except t=3 (8.3%, one slow rep: 0.688 s vs
+  ~0.64 s for the others; the median is unaffected).
+- 1 thread of the OpenMP build matches the sequential binary (1.5108 vs
+  1.5107 s).
+
+Plot: `04-DCP5/plots/2026.11.01.001.ThreadSweep100000x100000.xlsx`.
+
+#### Conclusion
+
+(To be stated by the student.)
