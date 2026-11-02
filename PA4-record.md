@@ -453,3 +453,75 @@ oracle 42/42 and gold 14/14, on both `PolyMult.check` and
 `PolyMult.check-par` (leaf_size=64, depth=5; parallel check at OpenMP's
 default 16 threads). One gate run; a race that the gate happens not to
 expose in one run cannot be ruled out by a single pass.
+
+#### Work-Span Analysis
+
+Let's approximate $N_A = N_B = N$.
+
+The sequential algorithm:
+
+$$
+\begin{aligned}
+W_s(n) &= 4 W_s(\frac{n}{2}) + O(1) \\
+W_s(n) &= \Theta(n^2) \\
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+S_s(n) &= 4 S_s(\frac{n}{2}) + O(1) \\
+S_s(n) &= \Theta(n^2) \\
+\end{aligned}
+$$
+
+The parallel algorithm:
+
+$$
+\begin{aligned}
+W_p(n) &= 2 W_p(\frac{n}{2}) + 2 W_s(\frac{n}{2}) + O(1) \\
+W_p(n) &= 2 W_p(\frac{n}{2}) + 2 \Theta(\frac{n^2}{4}) + O(1) \\
+W_p(n) &= \Theta(n^2) \\
+\end{aligned}
+$$
+
+The work does not change between the sequential and parallel implementations, discounting parallelization overhead.
+
+$$
+\begin{aligned}
+S_p(n) &= S_p(\frac{n}{2}) + 2 S_s(\frac{n}{2}) + O(1) \\
+S_p(n) &= S_p(\frac{n}{2}) + 2 \Theta(\frac{n}{4}) + O(1) \\
+S_p(n) &= \Theta(n^2) \\
+\end{aligned}
+$$
+
+Despite the parallelization, this algorithm has the same asmptotic complexity as the serial implementation.
+
+At depth $K$, the algorithm stops spawning tasks and executes the remaining subproblems sequentially.
+
+The span recurrence becomes
+
+$$
+S_K(N)=
+\begin{cases}
+N^2, & K=0 \\
+S_{K-1}(N/2)+N^2/2, & K>0 \\
+\end{cases}
+$$
+
+Solving:
+$$
+\begin{aligned}
+S_K(N) &= \frac{N^2}{2} \sum_{i=0}^{K-1} 4^{-i} + \frac{N^2}{4^K} \\
+&= N^2 (\frac{2}{3} + \frac{1}{3 \cdot 4^K}) \\
+\end{aligned}
+$$
+
+$$
+\lim_{K \rightarrow \infty} S_K(N) = \frac{2 N^2}{3} \\
+$$
+
+$$
+\frac{W_p}{S_p} = 3/2 = 1.5
+$$
+
+We are capped at a speedup of 1.5, no matter how many threads we use. 
